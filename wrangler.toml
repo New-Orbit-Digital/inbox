@@ -1,0 +1,7 @@
+# Inbox — Cloudflare Worker (static assets, no build step).
+# Deployed by .github/workflows/deploy-worker.yml on merge to main.
+name = "inbox"
+compatibility_date = "2026-08-30"
+
+[assets]
+directory = "./web"

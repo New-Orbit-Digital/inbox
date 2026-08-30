@@ -1,0 +1,6 @@
+project_id = "qaabxgldjluqyccwhjzf"
+
+# verify_jwt stays false while the database webhook calls classify with a
+# shared-secret header instead of a user JWT. The function checks auth in code.
+[functions.classify]
+verify_jwt = false
