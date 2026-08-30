@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: node --check every web JS file
+        run: |
+          set -e
+          for f in web/*.js; do node --check "$f"; done
+      - name: deno check every edge function
+        run: |
+          set -e
+          for f in supabase/functions/*/index.ts; do deno check "$f"; done
