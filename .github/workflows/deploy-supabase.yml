@@ -1,0 +1,26 @@
+name: deploy-supabase
+
+# Deploys ALL edge functions with settings from supabase/config.toml
+# (verify_jwt per function — reproducible from the repo, no dashboard toggle).
+# Migrations are NEVER applied by CI; DDL is prep-session work via the connector.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy edge functions
+        run: supabase functions deploy --project-ref ${{ vars.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
