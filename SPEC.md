@@ -38,7 +38,7 @@ phone browser, shipped as an installable PWA; Capacitor wrap deferred.
 | D-20 | Research capture stays ≤280 chars (the `messages.body` check) and carries the **topic only**; the brain dump is written in the overlay at tap time (Card 0), landing in `primers.brain_dump`. A "New primer" form exists too. |
 | D-21 | Primer models: Haiku 4.5 menu, Sonnet 5 + web search cards; Check Yourself research-mode only, answers reveal on tap; per-owner daily card cap 20; `kind`/`bucket` value `research`; primers outlive their capture. |
 | D-22 | Build system: repo + packets + autonomous Cowork sessions per the ads-agent methodology; deploys by GitHub Actions on merge; DDL by prep sessions via the Supabase Inbox connector. |
-| D-23 | Repo public (`NewOrbitDigital/inbox`); branch protection = the merge fire-gate. |
+| D-23 | Repo public at `New-Orbit-Digital/inbox` (created under the user account, transferred to the org 2026-08-30 so the org's Claude app installs cover it); branch protection = the merge fire-gate. |
 | D-24 | Rename: Worker `inbox` → `https://inbox.justin-a-bost.workers.dev`; internals (`window.TEXTWALL`, `tw-theme`, beacon) rename in packet 003; old `textwall` Worker deleted after cutover. |
 | D-25 | Version discipline: `INBOX_VERSION = "<packet>-<unit>"` in `web/config.js`; every function answers `?ping=1` with its version. Stale ping = STOP. |
 
