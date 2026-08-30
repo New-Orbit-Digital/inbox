@@ -21,8 +21,10 @@ protection on `main` is the fire-gate. Packets: `docs/packets/INDEX.md`.
 
 **Connector law:** database work goes through the **Supabase Inbox** connector only. The
 "Supabase" connector is bound to the New Orbit ads-agent org — Justin's daily-critical system —
-and is never called from Inbox work and NEVER disconnected. GitHub connector: reads public repos;
-private repos invisible; write access broken as of 2026-08-30 (403) — see backlog.
+and is never called from Inbox work and NEVER disconnected. GitHub: the repo lives in the
+New-Orbit-Digital org because both Claude GitHub apps ("Claude" for the executor, "Claude GitHub MCP
+Connector" for chat/Cowork) are installed there at all-repositories; the user account has neither
+installed, so repos owned by it are read-only to the pipe. Keep pipe repos in the org.
 
 **Deploy proof:** `INBOX_VERSION` in `web/config.js` and `?ping=1` on every function. A stale
 version is a STOP, not a shrug. `verify_jwt` per function lives in `supabase/config.toml`, so
