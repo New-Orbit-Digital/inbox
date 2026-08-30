@@ -2,7 +2,7 @@
 
 Kickoff line for a Cowork session, once a row reads READY:
 
-> Run build packet NNN in `docs/packets/` of NewOrbitDigital/inbox per its own instructions.
+> Run build packet NNN in `docs/packets/` of New-Orbit-Digital/inbox per its own instructions.
 
 Always name the packet explicitly. Each running session reads its packet in full, honors this
 file's session-wide rules, commits its run report to `docs/packets/reports/`, and flips its row
@@ -46,7 +46,7 @@ here in the same close-out PR.
 
 ## Prep record
 
-**Prep-1 (2026-08-30, done):** Supabase Inbox connector verified (`todo_tags`=8, `messages`=192, `grocery_prefs`=4). Live schema read; deployed `classify` (deploy v10) mirrored. Migration `20260830174400_quadrants_and_lanes` applied and certified: quadrant columns, `lane_order` (seeded 1–8 alphabetically), `last_used_at` (seeded from newest use), RPCs `tag_touch`/`tag_rename`/`tag_delete`, all INVOKER. Quadrant backfill ruled by Justin and fired: 9 open to-dos — 4×Q1, 5×Q2, 0 unsorted; 4 recurring to-dos deleted (bodies preserved in the prep chat). Repo scaffolded by web upload (connector writes 403 — open item).
+**Prep-1 (2026-08-30, done):** Supabase Inbox connector verified (`todo_tags`=8, `messages`=192, `grocery_prefs`=4). Live schema read; deployed `classify` (deploy v10) mirrored. Migration `20260830174400_quadrants_and_lanes` applied and certified: quadrant columns, `lane_order` (seeded 1–8 alphabetically), `last_used_at` (seeded from newest use), RPCs `tag_touch`/`tag_rename`/`tag_delete`, all INVOKER. Quadrant backfill ruled by Justin and fired: 9 open to-dos — 4×Q1, 5×Q2, 0 unsorted; 4 recurring to-dos deleted (bodies preserved in the prep chat). Repo scaffolded by web upload, then transferred to the New-Orbit-Digital org (2026-08-30) so the org's existing Claude app installs cover it; connector writes verified working after the move.
 
 **Prep-2 (pending, blocks 008):** apply the Primer corpus §4 migration — `message_id uuid references public.messages(id) on delete set null` (messages.id is uuid, confirmed); keep its own `updated_at` helper (none exists here); certify with the corpus read-backs. Confirm `ANTHROPIC_API_KEY` is the live secret name.
 
