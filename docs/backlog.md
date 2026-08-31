@@ -22,8 +22,20 @@
   `archive/live-wall/` and `PUBLIC_HOST` (003); drop the five anon/`owner is null` policies and
   purge `owner is null` rows with counts shown first (Prep-2 DDL); `session` column stays for now.
 - **[low] `todo_tags.description`** unused since auto-tagging died; drop in a future prep DDL.
-- **[low] Executor auth:** on API billing; switch `claude.yml` back to `claude_code_oauth_token`
-  if a token is ever minted (needs Claude Code CLI `/install-github-app`, unavailable to Justin).
+- **[HIGH — Justin paste] Executor auth is on API billing, and that is what drained the credits.**
+  `claude.yml` passes `anthropic_api_key`, so every packet issue runs an Opus build session against
+  pay-as-you-go API credits, while this planner session bills the Claude subscription. The balance
+  ran dry mid-packet-002 (executor runs 33351757525 / 33352038557 errored; the app's grocery call
+  then returned `anthropic 400: credit balance is too low`). **Correction to the earlier note:**
+  minting the token does NOT need `/install-github-app` — that flow is an optional convenience. The
+  command is `claude setup-token` in the Claude Code CLI, which prints a one-year token. Fix: mint
+  it, add repo secret CLAUDE_CODE_OAUTH_TOKEN, and change the one auth line in `claude.yml` to
+  `claude_code_oauth_token: (that secret)`. Executor then bills the subscription like the ads-agent
+  work. Docs: code.claude.com/docs/en/authentication, /github-actions.
+- **[note] The app's own model call cannot use the subscription token.** `classify` calls the
+  Anthropic API directly from an edge function, so ANTHROPIC_API_KEY (the Supabase function secret)
+  stays on API billing forever. A small credit balance must exist or grocery captures degrade to a
+  single "Other" row. This is unrelated to the executor swap; both need doing.
 - **[Justin surface] Retire Primer artifacts:** delete Supabase project `dihrtmwbaycmilvcvcom`;
   archive `NewOrbitDigital/primer`; remove the Supabase Primer connector from the account.
 - **[note → 004] WEBHOOK_SECRET** retires with the trigger; treat as burned if it ever appears
