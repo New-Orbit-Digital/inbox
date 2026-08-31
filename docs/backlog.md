@@ -3,10 +3,15 @@
 ## 2026-08-31 — Prep-1b close-out (added this close-out)
 - **Closed this session — pipe proofs.** Executor smoke, both deploy workflows, cutover at the
   new URL, branch-protection refusal, auth redirect URL: all green 2026-08-31.
+- **[high] Executor runner has no `deno`** (packet 001 finding: `command not found`, and the sandbox
+  refused the installer). Add a step to `claude.yml` before "Run Claude Code": `denoland/setup-deno@v2`
+  with `deno-version: v2.x`, so `deno check` executes in packets 002 and 008. Until it lands, packets
+  fall back to planner read-through, as 001 did. Justin paste.
 - **[Justin surface] Delete the old `textwall` Worker** in the personal Cloudflare account (the
   `justin-a-bost` subdomain). Removes the wall pages from the internet.
-- **[Justin surface] Delete the unused branch `claude/pipe-fixes-20260831`** (created for a
-  workflow edit the connector could not push; the connector cannot delete branches).
+- **[Justin surface] Delete the unused branches** `claude/pipe-fixes-20260831` and
+  `claude/packet-002-ready-20260831` (superseded; the connector cannot delete branches).
+- **[low] Serialize deploys:** add `concurrency: { group: deploy-supabase, cancel-in-progress: false }` to `deploy-supabase.yml` (and the worker equivalent) so two close merges cannot race and overwrite each other's function deploy. Until then, packets that deploy functions run strictly one at a time. Justin paste.
 - **[low] Pin wrangler 4 in `deploy-worker.yml`** (`wranglerVersion: "4.127.1"` under `with:`) —
   the action's default 3.90 warns itself out of date. Justin paste; not blocking.
 - **[normal] Calendar rework.** Events tab hidden; link-based Google Calendar approach is the
