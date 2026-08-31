@@ -6,18 +6,22 @@ checklist item with a prediction.
 
 **Product:** Inbox — personal captures in one shell: To-do (Eisenhower + tag swimlanes), Grocery
 (store-ordered list), Research (Primer briefs), Notes, Done. Calendar hidden pending rework.
-Formerly Text Wall; the live audience wall is retired (`archive/live-wall/`).
+Formerly Text Wall; the live audience wall is cut entirely (ruled 2026-08-31) — no pages, no
+policies, no rows survive it once packet 003 and Prep-2 land.
 
 **Stack:** plain HTML/JS, no build step — `web/` deploys verbatim to the Cloudflare Worker
-`inbox` (`https://inbox.justin-a-bost.workers.dev`). Supabase project `qaabxgldjluqyccwhjzf`
-(personal org): Postgres + RLS (`owner = auth.uid()`), Deno edge functions, password-primary
-auth with email-link fallback. Anthropic API: Haiku 4.5 (`claude-haiku-4-5-20251001`) for
-grocery parsing and the Primer menu; Sonnet 5 + web search for Primer cards.
+`inbox` at `https://inbox.justin-dec.workers.dev` (the New Orbit agency Cloudflare account,
+subdomain `justin-dec`; the retired `textwall` Worker lived in Justin's personal account).
+Supabase project `qaabxgldjluqyccwhjzf` (personal org): Postgres + RLS (`owner = auth.uid()`),
+Deno edge functions, password-primary auth with email-link fallback. Anthropic API: Haiku 4.5
+(`claude-haiku-4-5-20251001`) for grocery parsing and the Primer menu; Sonnet 5 + web search for
+Primer cards.
 
-**Pipe:** planner (chat / Cowork session) files `@claude` issues → Claude Code Action builds on
-a branch → planner opens the PR, adjudicates the diff, merges on PASS where authorized → Actions
-deploy (`deploy-worker`, `deploy-supabase`) → Justin verifies on the deployed app. Branch
-protection on `main` is the fire-gate. Packets: `docs/packets/INDEX.md`.
+**Pipe:** planner (chat / Cowork session) files `@claude` issues → Claude Code Action (on
+`anthropic_api_key`) builds on a branch → planner opens the PR, adjudicates the diff, merges on
+PASS where authorized → Actions deploy (`deploy-worker`, `deploy-supabase`) → Justin verifies on
+the deployed app. The `main` ruleset (PR required, no bypass) is the fire-gate. Packets:
+`docs/packets/INDEX.md`.
 
 **Connector law:** database work goes through the **Supabase Inbox** connector only. The
 "Supabase" connector is bound to the New Orbit ads-agent org — Justin's daily-critical system —
@@ -26,9 +30,11 @@ New-Orbit-Digital org because both Claude GitHub apps ("Claude" for the executor
 Connector" for chat/Cowork) are installed there at all-repositories; the user account has neither
 installed, so repos owned by it are read-only to the pipe. Keep pipe repos in the org.
 
-**Deploy proof:** `INBOX_VERSION` in `web/config.js` and `?ping=1` on every function. A stale
-version is a STOP, not a shrug. `verify_jwt` per function lives in `supabase/config.toml`, so
-redeploys can't silently reset it; functions that need auth also check in code.
+**Deploy proof:** `INBOX_VERSION` in `web/config.js`, `?ping=1` on every function, and the
+`health` endpoint (`…/functions/v1/health`: deployed version, live migrations, table counts; no
+secret needed). A stale version is a STOP, not a shrug. `verify_jwt` per function lives in
+`supabase/config.toml`, so redeploys can't silently reset it; functions that need auth also check
+in code.
 
 **Constraints that shape design:** `messages.body` is 1–280 chars (Primer brain dumps therefore
 live on `primers.brain_dump`, entered in the overlay). The DB webhook (`classify-on-insert`)

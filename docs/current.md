@@ -1,36 +1,30 @@
-# current.md — as of 2026-08-30 (PIPE STOOD UP; SMOKE PENDING; NO PACKET READY)
+# current.md — as of 2026-08-31 (PIPE PROVEN END TO END; PACKET 001 READY)
 
 ## Gates at next open
-- `select count(*) from todo_tags` via Supabase Inbox = 8 (binding proof).
-- Migration history contains `20260830174400 quadrants_and_lanes`.
-- Open to-dos: 9 total, 0 with a null quadrant.
-- Once 001 lands: health endpoint and `INBOX_VERSION` become the cheap gate.
+- `select count(*) from todo_tags` via Supabase Inbox returns a number (binding proof).
+- `select version, name from public.migration_versions(2)` = `20260831020016 health_support`, `20260830174400 quadrants_and_lanes`.
+- Open to-dos: 9 total, 0 with a null quadrant (until packets change capture).
+- After 001: `https://qaabxgldjluqyccwhjzf.supabase.co/functions/v1/health` and `INBOX_VERSION` in `config.js` are the cheap gates.
 
 ## State
-- Repo: `New-Orbit-Digital/inbox` (public). Transferred from the user account 2026-08-30; the
-  org's "Claude" and "Claude GitHub MCP Connector" installs cover it; planner writes verified.
-- Scaffold on `main`, byte-verified: v7 app under `web/`, classify v10 mirror, both migrations,
-  docs trio, SPEC v0.2, INDEX, CLAUDE.md, `.gitignore`, four workflows.
-- Executor auth: `anthropic_api_key` (API billing) in `claude.yml`; secret `ANTHROPIC_API_KEY` set.
-  `/install-github-app` was unavailable in Justin's environment; OAuth token path abandoned.
-- Actions secrets/variable reported set by Justin: SUPABASE_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN,
-  CLOUDFLARE_ACCOUNT_ID, SUPABASE_PROJECT_ID. (Values never in chat.)
-- Schema v2 live and certified; backfill done (4×Q1, 5×Q2).
+- Pipe proven 2026-08-31: executor smoke PASS (issue #2, `anthropic_api_key`); Worker live at
+  `https://inbox.justin-dec.workers.dev` (agency Cloudflare account); `classify` v11 deployed from
+  the runner with `verify_jwt = false`; sign-in + grocery + to-do captures verified at the new URL;
+  `main` ruleset refuses direct pushes (probe refused 2026-08-31).
+- Supabase Auth: Site URL `https://inbox.justin-dec.workers.dev/inbox.html`; redirect `…/**`.
+- Schema: v2 (quadrants, lanes, tag RPCs) + `migration_versions()` helper. Backfill done.
+- Packet 001 READY; 002–009 IN PREP. Prep-2 (Primer schema + live-wall DB purge) pending.
 
 ## Pending, in order
-1. Smoke issue → executor reply proves the Claude app + API key on this repo.
-2. Justin's report: both deploy workflows green; cutover check at the new URL (sign in, one grocery
-   capture categorizes, one to-do captures).
-3. Branch protection on `main` confirmed by a refused direct push (planner probe).
-4. Supabase Auth redirect list includes `https://inbox.justin-a-bost.workers.dev`.
-5. Packet 001 written in full → READY → first Cowork kickoff.
+1. Justin kicks off packet 001 in a fresh Cowork session (GitHub + Supabase Inbox on, all else off).
+2. Justin deletes the old `textwall` Worker in the personal Cloudflare account (also removes the wall pages from the internet).
+3. Planner writes packet 002 in full; Prep-2 when 008 approaches.
 
 ## Mechanics that must not be relearned
-- Two Claude GitHub apps exist and are installed per account, not per user login. A repo outside an
-  account that has both installed is read-only to the pipe (writes 403, private repos 404).
-- GitHub's web uploader silently drops dot-paths (`.github/`, `.gitignore`); paste those via
-  "Create new file".
-- The webhook calls classify with an `x-webhook-secret` header whose value sits in the trigger
-  definition. Retire with the webhook (packet 004); rotate only if it leaks somewhere new.
+- Two Claude GitHub apps exist and are installed per account. Repos outside an account that has both are read-only to the pipe. Keep pipe repos in the org.
+- The chat connector cannot write `.github/workflows/` (403) and its file-delete call needs an approval card that lapses; workflow edits are Justin pastes, deletions go to the executor.
+- GitHub's web uploader silently drops dot-paths; `${{ vars.X }}` resolved empty because the variable was never created — public values are hardcoded in workflows instead.
+- The webhook calls classify with an `x-webhook-secret` header whose value sits in the trigger definition. Retire with the webhook (packet 004).
 - classify SPLITS captures (one dictation → many rows); 002's direct-call contract keeps the split.
+- Password sign-in is origin-independent; the email link depends on Site URL + redirect list and is the fragile fallback by design.
 - `messages.bucket` is CHECK-constrained; adding a bucket value is DDL, hence prep.

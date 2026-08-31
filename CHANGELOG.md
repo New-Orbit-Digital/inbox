@@ -1,6 +1,18 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-08-31 — Pipe proven end to end; packet 001 READY
+- **Executor smoke PASS** (issue #2): clean tree, file listing, `anthropic_api_key` confirmed by name.
+- **Deploys automated and proven:** `deploy-worker` → `https://inbox.justin-dec.workers.dev` (agency
+  Cloudflare account); `deploy-supabase` → `classify` v11 from the runner, `verify_jwt = false` via
+  `config.toml`. The project ref is hardcoded in the workflow (the repo variable never existed).
+- **Cutover:** Justin signed in at the new URL with his password and captured grocery + to-do items.
+  Site URL and redirect list updated to the new origin.
+- **Fire-gate mechanical:** `main` ruleset (PR required, no bypass); planner probe push refused.
+- **Migration `20260831020016_health_support`** applied and certified: `public.migration_versions()`
+  (DEFINER, service_role-only) for the health endpoint.
+- **Packet 001 written in full and flipped READY.** Ruled: live wall cut entirely.
+---
 ## 2026-08-30 — Pipe stood up: repo moved to the org, executor on API auth
 - **Repo transferred** `NewOrbitDigital/inbox` → `New-Orbit-Digital/inbox` so the org's existing
   "Claude" and "Claude GitHub MCP Connector" installs cover it; planner writes verified after the move.
