@@ -25,7 +25,7 @@ here in the same close-out PR.
 | Packet | Scope | Status | Report |
 |---|---|---|---|
 | [001](build_packet_001_pipe_shakedown.md) | Pipe shakedown: `INBOX_VERSION` beacon in `web/config.js`; `health` edge function (version, migrations, table counts) | COMPLETE | [2026-08-31](reports/packet_001_report_20260831.md) |
-| [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | RUNNING | — |
+| [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | COMPLETE | [2026-08-31](reports/packet_002_report_20260831.md) |
 | 003 | Shell: bottom nav (To-do · Grocery · Research · Notes · Done) replacing tabs; Events hidden behind a flag; bucket chips, `fileAs`, keys 1–4 removed; Swimlanes/Matrix control stub; internals renamed (`window.TEXTWALL`→`window.INBOX`, `tw-theme`→`inbox-theme`, beacon); live-wall cleanup (`archive/live-wall/` deleted, `PUBLIC_HOST` removed) | IN PREP | — |
 | 004 | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → direct call inserting every returned entry; webhook mode deleted; Justin drops the DB trigger at close-out | IN PREP | — |
 | 005 | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | IN PREP | — |
