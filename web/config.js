@@ -27,3 +27,7 @@ window.TEXTWALL = {
   // To-do tags. Must match the list inside the edge function.
   TAGS: ["personal","new-orbit","ews","ptc","gtfo"],
 };
+
+// Build beacon — bumped by every unit that ships a web/ change. Deploy proof.
+window.INBOX_VERSION = "001-A";
+console.log("inbox build", window.INBOX_VERSION);
