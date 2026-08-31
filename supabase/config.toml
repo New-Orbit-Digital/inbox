@@ -4,3 +4,6 @@ project_id = "qaabxgldjluqyccwhjzf"
 # shared-secret header instead of a user JWT. The function checks auth in code.
 [functions.classify]
 verify_jwt = false
+
+[functions.health]
+verify_jwt = false
