@@ -1,17 +1,25 @@
-// Supabase Edge Function: classify (v3 — mode-driven parser)
-// The inbox now inserts each capture WITH its bucket (the active tab).
-// This function no longer routes; it only parses within the known mode:
+// Supabase Edge Function: classify (002-A — grocery-only, two entry points)
+// The inbox inserts each capture WITH its bucket (the active tab). This
+// function parses ONE mode with the model — grocery — and nothing else:
 //   grocery  → split into items, assign store category (prefs override model)
-//   todo     → split, resolve due dates, tags (#tag wins), recurrence
-//   event    → resolve start/end, all-day, multi-day, recurrence
-//   research/note → stored as typed; no API call, no cost
+//   todo     → transitional deterministic default, NO model call (packet 004
+//              deletes this path entirely)
+//   research/note/event/null → ignored; stored exactly as typed, no cost
 //
-// Secrets: ANTHROPIC_API_KEY, WEBHOOK_SECRET, TIMEZONE (optional),
+// Two entry points share one grocery routine:
+//   webhook mode (x-webhook-secret)  → writes the parsed items back to messages
+//   direct mode  (Authorization)     → returns the parsed items, writes nothing
+//
+// Secrets: ANTHROPIC_API_KEY, WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY,
+//          SUPABASE_URL (auto-injected), TIMEZONE (optional),
 //          DAY_ROLLOVER_HOUR (optional, default 3 — the hour at which
 //          "today" becomes tomorrow; 12:10am counts as the previous day)
 // After redeploying: re-check Settings → "Verify JWT with legacy secret" stays OFF.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const CLASSIFY_VERSION = "002-A";
+const ALLOWED_ORIGIN = "https://inbox.justin-dec.workers.dev";
 
 const TIMEZONE = Deno.env.get("TIMEZONE") ?? "America/New_York";
 const ROLLOVER = parseInt(Deno.env.get("DAY_ROLLOVER_HOUR") ?? "3", 10) || 3;
@@ -23,7 +31,6 @@ const GROCERY_CATEGORIES = [
   "Wine, Beer & Spirits","Snacks","Beverages","Baby","Health & Personal Care",
   "Household & Cleaning","Other",
 ];
-const DEFAULT_TAGS = ["personal","new-orbit","ews","ptc","gtfo"];
 
 const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -50,52 +57,136 @@ function todayLocal(): string {
     .toLocaleDateString("en-CA", { timeZone: TIMEZONE });
 }
 
+// ---------------------------------------------------------------- responses
+
+const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-webhook-secret",
+};
+
+const json = (body: unknown, status = 200) =>
+  Response.json(body, { status, headers: CORS });
+const plain = (body: string, status: number) =>
+  new Response(body, { status, headers: CORS });
+const unauthenticated = () =>
+  json({ error: "unauthenticated", classify_version: CLASSIFY_VERSION }, 401);
+
+// ---------------------------------------------------------------- router
+
 Deno.serve(async (req) => {
-  if (req.headers.get("x-webhook-secret") !== Deno.env.get("WEBHOOK_SECRET")) {
-    return new Response("forbidden", { status: 403 });
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: CORS });
+
+  if (req.method === "GET") {
+    const ping = new URL(req.url).searchParams.get("ping");
+    if (ping === "1") return json({ classify_version: CLASSIFY_VERSION });
+    return json({ error: "GET ping only", classify_version: CLASSIFY_VERSION }, 405);
   }
 
+  if (req.method === "POST") {
+    const secret = req.headers.get("x-webhook-secret");
+    if (secret !== null) {
+      if (secret !== Deno.env.get("WEBHOOK_SECRET")) return plain("forbidden", 403);
+      return await webhookMode(req);
+    }
+    if (req.headers.get("Authorization")) return await directMode(req);
+  }
+
+  return unauthenticated();
+});
+
+// ---------------------------------------------------------------- webhook mode
+
+async function webhookMode(req: Request) {
   const payload = await req.json();
   const m = payload?.record;
 
   // Personal inserts only; skip wall messages and our own sibling inserts
   // (those carry a confidence value).
   if (payload?.type !== "INSERT" || !m?.owner || m.confidence != null) {
-    return Response.json({ skipped: true });
+    return json({ skipped: true });
   }
 
-  const mode = (m.bucket ?? "todo") as string;
-
-  // Free modes: stored exactly as typed.
-  if (mode === "research" || mode === "note") {
-    return Response.json({ stored: true });
-  }
-
-  try {
-    if (mode === "grocery") return await handleGrocery(m);
-    if (mode === "event")   return await handleEvent(m);
-    return await handleTodo(m);
-  } catch (err) {
-    // Parsing is best-effort: on failure the capture stays as typed,
-    // in the tab it was entered on, with safe defaults.
-    console.error(`${mode} parse failed:`, err);
-    if (mode === "todo") {
-      await db.from("messages").update({
-        due_date: todayLocal(), tag: "personal", confidence: 0, auto: false,
-      }).eq("id", m.id);
-    } else if (mode === "grocery") {
+  if (m.bucket === "grocery") {
+    try {
+      const entries = await parseGrocery(m.body as string, m.owner as string);
+      return await writeEntries(m, entries, (e: Entry) => ({
+        body: e.text,
+        grocery_category: e.grocery_category,
+        confidence: 0.95, auto: true,
+      }));
+    } catch (err) {
+      // Parsing is best-effort: on failure the capture stays as typed,
+      // in the tab it was entered on, with safe defaults.
+      console.error("grocery parse failed:", err);
       await db.from("messages").update({
         grocery_category: "Other", confidence: 0, auto: false,
       }).eq("id", m.id);
+      return json({ error: String(err) }, 200);
     }
-    return Response.json({ error: String(err) }, { status: 200 });
   }
-});
+
+  // Transitional: to-dos file deterministically, with no model call at all.
+  if (m.bucket === "todo") return await defaultTodo(m);
+
+  return json({ ignored: true });
+}
+
+async function defaultTodo(m: Record<string, unknown>) {
+  const body = m.body as string;
+
+  // A typed #tag is explicit; unknown ones become real tags now.
+  const hash = body.match(/#([a-z0-9-]+)/i);
+  const tag = hash ? hash[1].toLowerCase() : "personal";
+  if (hash) {
+    const { error } = await db.from("todo_tags").upsert({ owner: m.owner, tag });
+    if (error) console.error("tag persist failed:", error);
+  }
+
+  const { error: upErr } = await db.from("messages").update({
+    body: stripTags(body),
+    due_date: todayLocal(),
+    tag,
+    auto: false, confidence: 0,
+  }).eq("id", m.id);
+  if (upErr) console.error("update failed:", upErr);
+
+  return json({ filed: 1 });
+}
+
+// ---------------------------------------------------------------- direct mode
+
+async function directMode(req: Request) {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  const { data: auth, error: authErr } = await db.auth.getUser(token);
+  if (authErr || !auth?.user) return unauthenticated();
+  const owner = auth.user.id;
+
+  const payload = await req.json().catch(() => null);
+  const raw = payload?.text;
+  const text = typeof raw === "string" ? raw.trim() : "";
+  if (!text || text.length > 280) {
+    return json({ error: "text required (1–280 chars)", classify_version: CLASSIFY_VERSION }, 400);
+  }
+
+  // A model failure degrades to a single uncategorised item; never a 5xx.
+  try {
+    const entries = await parseGrocery(text, owner);
+    if (!entries.length) throw new Error("no entries");
+    return json({
+      entries: entries.map((e) => ({ text: e.text, category: e.grocery_category })),
+    });
+  } catch (err) {
+    console.error("direct grocery parse failed:", err);
+    return json({ entries: [{ text, category: "Other" }], degraded: true });
+  }
+}
 
 // ---------------------------------------------------------------- grocery
 
-async function handleGrocery(m: Record<string, unknown>) {
-  const entries = await parse(m.body as string, `You split a grocery capture, often messy speech-to-text, into individual store items.
+async function parseGrocery(body: string, owner: string): Promise<Entry[]> {
+  const entries = await parse(body, `You split a grocery capture, often messy speech-to-text, into individual store items.
 Respond with ONLY JSON, no fences: {"entries":[{"text":"...","grocery_category":"..."}]}
 - One entry per item ("apples, bread and milk" → three entries).
 - "text" is the clean item name; drop filler like "add", "buy", "to the list".
@@ -105,88 +196,16 @@ Respond with ONLY JSON, no fences: {"entries":[{"text":"...","grocery_category":
   const prefs = new Map<string, string>();
   if (keys.length) {
     const { data } = await db.from("grocery_prefs")
-      .select("item,category").eq("owner", m.owner).in("item", keys);
+      .select("item,category").eq("owner", owner).in("item", keys);
     (data ?? []).forEach((p) => prefs.set(p.item, p.category));
   }
 
-  const rowFor = (e: Entry) => ({
-    body: e.text,
+  // A learned preference beats the model; anything off-list becomes "Other".
+  return entries.map((e) => ({
+    ...e,
     grocery_category: prefs.get(normalize(e.text)) ??
       (GROCERY_CATEGORIES.includes(e.grocery_category ?? "") ? e.grocery_category : "Other"),
-    confidence: 0.95, auto: true,
-  });
-  return await writeEntries(m, entries, rowFor);
-}
-
-// ---------------------------------------------------------------- todo
-
-async function handleTodo(m: Record<string, unknown>) {
-  const body = m.body as string;
-
-  const { data: tagRows } = await db.from("todo_tags")
-    .select("tag,description").eq("owner", m.owner);
-  const tags = tagRows?.length ? tagRows.map((r) => r.tag) : [...DEFAULT_TAGS];
-  const gloss = (tagRows ?? [])
-    .filter((r) => r.description)
-    .map((r) => `${r.tag} = ${r.description}`).join("; ");
-
-  // A typed #tag is explicit; unknown ones become real tags now.
-  const hash = body.match(/#([a-z0-9-]+)/i);
-  const forcedTag = hash ? hash[1].toLowerCase() : null;
-  if (forcedTag && !tags.includes(forcedTag)) {
-    const { error } = await db.from("todo_tags")
-      .upsert({ owner: m.owner, tag: forcedTag });
-    if (error) console.error("tag persist failed:", error);
-    else tags.push(forcedTag);
-  }
-
-  const entries = await parse(body, `You parse a to-do capture, often messy speech-to-text, into individual tasks.
-Current local date for scheduling: ${todayLocal()} (the day rolls over at ${ROLLOVER}am — late-night captures belong to the previous date). Timezone: ${TIMEZONE}.
-Respond with ONLY JSON, no fences: {"entries":[{"text":"...","due_date":"YYYY-MM-DD","tag":"...","recur":"RRULE:... (optional)"}]}
-- Split independent tasks into separate entries; keep a single task as ONE entry even if it mentions several details. Only split when there are clearly distinct actions.
-- "text": clean task wording; drop filler ("remind me", "I need to"); preserve names' capitalization — lowercase names are people, not acronyms. Strip any #tag from the text.
-- "due_date": resolve mentioned dates/relative dates against the current local date; if none mentioned, use the current local date.
-- "tag" from: ${tags.join(", ")} — default "personal".${gloss ? ` (${gloss}.)` : ""} A #tag next to an item assigns that item's tag.
-- Recurring tasks ("every tuesday night"): "recur" as an RRULE (e.g. RRULE:FREQ=WEEKLY;BYDAY=TU) and due_date = the next occurrence.`);
-
-  const rowFor = (e: Entry) => ({
-    body: stripTags(e.text),
-    due_date: e.due_date ?? todayLocal(),
-    tag: tags.includes(e.tag ?? "") ? e.tag : (forcedTag ?? "personal"),
-    recur: e.recur ?? null,
-    confidence: 0.95, auto: true,
-  });
-  return await writeEntries(m, entries, rowFor);
-}
-
-// ---------------------------------------------------------------- event
-
-async function handleEvent(m: Record<string, unknown>) {
-  const now = new Date().toLocaleString("en-US", {
-    timeZone: TIMEZONE,
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-    hour: "numeric", minute: "2-digit", timeZoneName: "short",
-  });
-
-  const entries = await parse(m.body as string, `You parse an event capture, often messy speech-to-text, into calendar events.
-Current local time: ${now}. Timezone: ${TIMEZONE}.
-Respond with ONLY JSON, no fences: {"entries":[{"text":"...","event_start":"...","event_end":"(optional)","all_day":false,"recur":"RRULE:... (optional)"}]}
-- Usually ONE entry; split only when clearly separate events were dictated.
-- "text": a clean calendar title; preserve names' capitalization — lowercase names are people, not acronyms.
-- Clock time given → event_start as ISO8601 with the local offset; all_day=false.
-- Only dates given ("aug 26 to 30", "the 14th") → all_day=true, dates as YYYY-MM-DD. Ranges: event_end = the LAST day, inclusive. Never discard any part of a mentioned range or time — if you cannot model it, keep it in "text".
-- Recurring ("every monday 9am") → "recur" as an RRULE; event_start = the next occurrence; vague time of day → all_day=true.
-- Resolve relative dates against the current local time.`);
-
-  const rowFor = (e: Entry) => ({
-    body: e.text,
-    event_start: e.event_start ?? null,
-    event_end: e.event_end ?? null,
-    all_day: e.all_day ?? false,
-    recur: e.recur ?? null,
-    confidence: 0.95, auto: true,
-  });
-  return await writeEntries(m, entries, rowFor);
+  }));
 }
 
 // ---------------------------------------------------------------- shared
@@ -196,7 +215,7 @@ async function writeEntries(
   entries: Entry[],
   rowFor: (e: Entry) => Record<string, unknown>,
 ) {
-  if (!entries.length) return Response.json({ skipped: true });
+  if (!entries.length) return json({ skipped: true });
 
   const { error: upErr } = await db.from("messages")
     .update(rowFor(entries[0])).eq("id", m.id);
@@ -212,7 +231,7 @@ async function writeEntries(
     );
     if (insErr) console.error("sibling insert failed:", insErr);
   }
-  return Response.json({ filed: entries.length });
+  return json({ filed: entries.length });
 }
 
 async function parse(body: string, system: string): Promise<Entry[]> {
