@@ -26,5 +26,5 @@ Confirm the working tree is on a branch cut from CURRENT `main` and is clean; re
 ## Anti-footguns (attested)
 - After `git rm`, a multi-pathspec `git add` re-listing the removed path aborts atomically. Stage separately.
 - `git commit -- <path>` cannot commit an untracked file; `git add` first.
-- Don't declare "fixed" without stating how it would be observed on the DEPLOYED app — verification is Justin's, on `https://inbox.justin-a-bost.workers.dev/`, never localhost.
+- Don't declare "fixed" without stating how it would be observed on the DEPLOYED app — verification is Justin's, on `https://inbox.justin-dec.workers.dev/`, never localhost.
 - Don't subdivide categories to rationalize a different approach; surface the choice.

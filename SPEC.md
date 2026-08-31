@@ -39,16 +39,18 @@ phone browser, shipped as an installable PWA; Capacitor wrap deferred.
 | D-21 | Primer models: Haiku 4.5 menu, Sonnet 5 + web search cards; Check Yourself research-mode only, answers reveal on tap; per-owner daily card cap 20; `kind`/`bucket` value `research`; primers outlive their capture. |
 | D-22 | Build system: repo + packets + autonomous Cowork sessions per the ads-agent methodology; deploys by GitHub Actions on merge; DDL by prep sessions via the Supabase Inbox connector. |
 | D-23 | Repo public at `New-Orbit-Digital/inbox` (created under the user account, transferred to the org 2026-08-30 so the org's Claude app installs cover it); branch protection = the merge fire-gate. |
-| D-24 | Rename: Worker `inbox` → `https://inbox.justin-a-bost.workers.dev`; internals (`window.TEXTWALL`, `tw-theme`, beacon) rename in packet 003; old `textwall` Worker deleted after cutover. |
-| D-25 | Version discipline: `INBOX_VERSION = "<packet>-<unit>"` in `web/config.js`; every function answers `?ping=1` with its version. Stale ping = STOP. |
+| D-24 | Rename: Worker `inbox` at `https://inbox.justin-dec.workers.dev` (agency Cloudflare account, ruled 2026-08-31); internals (`window.TEXTWALL`, `tw-theme`, beacon) rename in packet 003; old `textwall` Worker in the personal account deleted after cutover. |
+| D-25 | Version discipline: `INBOX_VERSION = "<packet>-<unit>"` in `web/config.js`; every function answers `?ping=1` with its version; the `health` function reports version, migrations, and counts. Stale ping = STOP. |
+| D-26 | The live wall is cut entirely (ruled 2026-08-31): no pages in the repo, no anon policies, no `owner is null` rows. Repo cleanup in 003, database purge in Prep-2, old Worker deleted by Justin. |
 
-## Data model (as built, 2026-08-30)
+## Data model (as built, 2026-08-31)
 
 `messages`: v7 columns plus `important boolean` / `urgent boolean` (both non-null ⇒ sorted; quadrant
 derived, never stored). `bucket` check: todo/grocery/research/note/event. `status`: open/done/hidden.
 `body` 1–280 chars. `todo_tags`: (owner, tag) PK + `description` (unused) + `lane_order` +
 `last_used_at`. `grocery_prefs`: (owner, item) → category. RPCs: `tag_touch(tag)`,
-`tag_rename(from, to)` (→ 'renamed' | 'merged'), `tag_delete(tag, reassign_to)`. All SECURITY INVOKER.
+`tag_rename(from, to)` (→ 'renamed' | 'merged'), `tag_delete(tag, reassign_to)`, all SECURITY INVOKER;
+`migration_versions(limit)` SECURITY DEFINER, service_role-only, for the health endpoint.
 Backfill certified 2026-08-30: 9 open to-dos — 4 Q1, 5 Q2, 0 unsorted. Primer tables (`primers`,
 `primer_cards`) land in Prep-2 per the Primer corpus §4.
 
@@ -62,6 +64,5 @@ Details live in `docs/packets/INDEX.md`. 001 pipe shakedown → 002 classifier s
 
 - **Calendar rework** — the Events tab is the weakest part; hidden until its own effort.
 - **Habits / recurring items** — removed with dates; revisit as a segment of its own.
-- **Live wall** — retired; pages in `archive/live-wall/`; anon RLS policies slated for removal.
 - **Capacitor Android wrap**, widgets, Assistant capture, offline queue.
-- **Old-worker teardown** — delete the `textwall` Worker and the `WEBHOOK_SECRET` (with the webhook, packet 004).
+- **`WEBHOOK_SECRET` retirement** — with the webhook, packet 004.
