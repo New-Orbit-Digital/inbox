@@ -24,8 +24,8 @@ here in the same close-out PR.
 
 | Packet | Scope | Status | Report |
 |---|---|---|---|
-| [001](build_packet_001_pipe_shakedown.md) | Pipe shakedown: `INBOX_VERSION` beacon in `web/config.js`; `health` edge function (version, migrations, table counts) | RUNNING | — |
-| [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | READY — run after 001 COMPLETE | — |
+| [001](build_packet_001_pipe_shakedown.md) | Pipe shakedown: `INBOX_VERSION` beacon in `web/config.js`; `health` edge function (version, migrations, table counts) | COMPLETE | [2026-08-31](reports/packet_001_report_20260831.md) |
+| [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | READY | — |
 | 003 | Shell: bottom nav (To-do · Grocery · Research · Notes · Done) replacing tabs; Events hidden behind a flag; bucket chips, `fileAs`, keys 1–4 removed; Swimlanes/Matrix control stub; internals renamed (`window.TEXTWALL`→`window.INBOX`, `tw-theme`→`inbox-theme`, beacon); live-wall cleanup (`archive/live-wall/` deleted, `PUBLIC_HOST` removed) | IN PREP | — |
 | 004 | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → direct call inserting every returned entry; webhook mode deleted; Justin drops the DB trigger at close-out | IN PREP | — |
 | 005 | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | IN PREP | — |
@@ -38,7 +38,7 @@ here in the same close-out PR.
 
 ## Concurrency matrix
 
-- 001 → 002: never simultaneous. No file overlap, but both merge through `deploy-supabase`, which redeploys every function from its own checkout — two runs in flight can race and the later-starting run can overwrite the earlier one's function. 002's session-open gate requires 001 COMPLETE.
+- 001 → 002: never simultaneous. No file overlap, but both merge through `deploy-supabase`, which redeploys every function from its own checkout — two runs in flight can race and the later-starting run can overwrite the earlier one's function. 002's session-open gate requires 001 COMPLETE (satisfied 2026-08-31).
 - 003 → 004 → 005 → 006 → 007 → 009: strictly serial — each edits `web/inbox.html`.
 - 004 requires 002 COMPLETE; 009 requires 008 COMPLETE and Prep-2.
 - 008 safe alongside 003–007 (functions only).
