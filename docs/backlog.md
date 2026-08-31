@@ -7,6 +7,7 @@
   `justin-a-bost` subdomain). Removes the wall pages from the internet.
 - **[Justin surface] Delete the unused branch `claude/pipe-fixes-20260831`** (created for a
   workflow edit the connector could not push; the connector cannot delete branches).
+- **[low] Serialize deploys:** add `concurrency: { group: deploy-supabase, cancel-in-progress: false }` to `deploy-supabase.yml` (and the worker equivalent) so two close merges cannot race and overwrite each other's function deploy. Until then, packets that deploy functions run strictly one at a time. Justin paste.
 - **[low] Pin wrangler 4 in `deploy-worker.yml`** (`wranglerVersion: "4.127.1"` under `with:`) —
   the action's default 3.90 warns itself out of date. Justin paste; not blocking.
 - **[normal] Calendar rework.** Events tab hidden; link-based Google Calendar approach is the
