@@ -1,6 +1,13 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-09-01 — Executor auth moved to the Claude subscription
+- **`claude.yml` switched to `claude_code_oauth_token`** (`e6a3b70`), replacing the API-key auth line.
+  Executor runs now bill the Claude subscription instead of pay-as-you-go API credits. The token is
+  minted with `claude setup-token`; the secret is named CLAUDE_CODE_OAUTH_TOKEN.
+- **Unchanged:** ANTHROPIC_API_KEY remains the Supabase function secret that `classify` reads at
+  runtime, and stays on API billing.
+---
 ## 2026-08-31 — Pipe proven end to end; packet 001 READY
 - **Executor smoke PASS** (issue #2): clean tree, file listing, `anthropic_api_key` confirmed by name.
 - **Deploys automated and proven:** `deploy-worker` → `https://inbox.justin-dec.workers.dev` (agency

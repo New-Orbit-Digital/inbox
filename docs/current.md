@@ -10,7 +10,9 @@
 - Pipe proven 2026-08-31: executor smoke PASS (issue #2, `anthropic_api_key`); Worker live at
   `https://inbox.justin-dec.workers.dev` (agency Cloudflare account); `classify` v11 deployed from
   the runner with `verify_jwt = false`; sign-in + grocery + to-do captures verified at the new URL;
-  `main` ruleset refuses direct pushes (probe refused 2026-08-31).
+  `main` ruleset refuses direct pushes (probe refused 2026-08-31). Executor auth moved to
+  `claude_code_oauth_token` on 2026-09-01 (`e6a3b70`), so executor runs now bill the Claude
+  subscription.
 - Supabase Auth: Site URL `https://inbox.justin-dec.workers.dev/inbox.html`; redirect `…/**`.
 - Schema: v2 (quadrants, lanes, tag RPCs) + `migration_versions()` helper. Backfill done.
 - Packet 001 READY; 002–009 IN PREP. Prep-2 (Primer schema + live-wall DB purge) pending.
