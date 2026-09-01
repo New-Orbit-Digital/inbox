@@ -36,6 +36,16 @@
   Anthropic API directly from an edge function, so ANTHROPIC_API_KEY (the Supabase function secret)
   stays on API billing forever. A small credit balance must exist or grocery captures degrade to a
   single "Other" row. This is unrelated to the executor swap; both need doing.
+- **[RULED 2026-09-01 → packet 004] Grocery drops the model; deterministic rules replace it.**
+  Supersedes the 2026-08-29 ruling that grocery keeps AI for the split. Split on commas/and/&/newlines,
+  categorize by `grocery_prefs` exact match → longest keyword match → "Other". Placement ruled:
+  client-side, folded into 004 U-B; `classify` loses its grocery path entirely at U-C. Contract and the
+  seed table (derived from Justin's 95-item history) are pinned in
+  `docs/packets/prep_004_grocery_rule.md`. **After 004 the only model call left in this app is Primer.**
+- **[note] Until 004 lands, grocery captures need a funded API credit balance.** The deployed
+  `classify` still calls Anthropic for the grocery split; with the balance at zero the error path files
+  one row as "Other" (`confidence 0, auto false`). Either fund the balance or accept single-row grocery
+  captures until 004.
 - **[Justin surface] Retire Primer artifacts:** delete Supabase project `dihrtmwbaycmilvcvcom`;
   archive `NewOrbitDigital/primer`; remove the Supabase Primer connector from the account.
 - **[note → 004] WEBHOOK_SECRET** retires with the trigger; treat as burned if it ever appears

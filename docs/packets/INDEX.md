@@ -18,7 +18,7 @@ here in the same close-out PR.
 - **Secrets:** placeholders only, everywhere; placeholder examples in issue bodies written without angle brackets (the issue sanitizer strips them). Known secret names: ANTHROPIC_API_KEY, WEBHOOK_SECRET (retires with the webhook), SUPABASE_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 - **File-size gate at session open:** list `web/` and `supabase/functions/` with sizes; any file over 300 KB is a finding and no unit may edit it this run.
 - **Phone-first acceptance:** every unit changing `web/` carries an Actions-for-Justin check on Android at ~390px, light and dark mode.
-- **No AI where process will do.** Model calls in this app: grocery split/categorization (Haiku) and Primer (Haiku menu, Sonnet 5 cards). A unit introducing another model call is a STOP.
+- **No AI where process will do.** Model calls in this app after packet 004: **Primer only** (Haiku menu, Sonnet 5 cards). Grocery split/categorization was ruled back to deterministic rules on 2026-09-01 — see [prep_004_grocery_rule.md](prep_004_grocery_rule.md). A unit introducing another model call is a STOP.
 
 ## Queue
 
@@ -27,7 +27,7 @@ here in the same close-out PR.
 | [001](build_packet_001_pipe_shakedown.md) | Pipe shakedown: `INBOX_VERSION` beacon in `web/config.js`; `health` edge function (version, migrations, table counts) | COMPLETE | [2026-08-31](reports/packet_001_report_20260831.md) |
 | [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | COMPLETE | [2026-08-31](reports/packet_002_report_20260831.md) |
 | 003 | Shell: bottom nav (To-do · Grocery · Research · Notes · Done) replacing tabs; Events hidden behind a flag; bucket chips, `fileAs`, keys 1–4 removed; Swimlanes/Matrix control stub; internals renamed (`window.TEXTWALL`→`window.INBOX`, `tw-theme`→`inbox-theme`, beacon); live-wall cleanup (`archive/live-wall/` deleted, `PUBLIC_HOST` removed) | IN PREP | — |
-| 004 | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → direct call inserting every returned entry; webhook mode deleted; Justin drops the DB trigger at close-out | IN PREP | — |
+| 004 | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → **deterministic client-side split + aisle rule, no model call** (ruled 2026-09-01, supersedes the 08-29 ruling); the `classify` grocery path and webhook mode both deleted; Justin drops the DB trigger at close-out | IN PREP | — |
 | 005 | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | IN PREP | — |
 | 006 | Tag sheet: rename / merge-on-collision / reorder / delete-with-reassign via the RPCs | IN PREP | — |
 | 007 | PWA: manifest, service worker, icons, standalone, theme-color; Android share target → Research capture | IN PREP | — |
@@ -52,12 +52,14 @@ here in the same close-out PR.
 
 **Prep-2 (pending, blocks 008):** apply the Primer corpus §4 migration — `message_id uuid references public.messages(id) on delete set null` (messages.id is uuid, confirmed); keep its own `updated_at` helper (none exists here); certify with the corpus read-backs. Retire the live wall in the database: drop the five anon/`owner is null` policies on `messages` and purge `owner is null` rows (counts shown to Justin first). Confirm `ANTHROPIC_API_KEY` is the live function secret name.
 
+**Prep — packet 004 U-B (2026-09-01, done):** grocery ruled back to deterministic rules; split rules, resolution order and a seed keyword table derived from the 95 distinct items in captured history are pinned in [prep_004_grocery_rule.md](prep_004_grocery_rule.md). Verified in the same session: `grocery_prefs` has grown 4 → 14 rows unaided, and `savePref` in `web/inbox.html` already writes it on every aisle correction, so the learning loop needs no new work.
+
 ## Packet outlines (contracts pinned at packet-writing time)
 
 - **001** — written in full: [build_packet_001_pipe_shakedown.md](build_packet_001_pipe_shakedown.md).
 - **002** — written in full: [build_packet_002_classifier_slimdown.md](build_packet_002_classifier_slimdown.md).
 - **003** — U-A nav + routing + Events flag + rename; U-B removals (chips/`fileAs`/keys); U-C live-wall cleanup (delete `archive/live-wall/`, drop `PUBLIC_HOST` from `config.js`). Handler inventory before/after.
-- **004** — U-A to-do capture; U-B grocery direct call; U-C delete webhook mode from `classify`. Justin close-out: drop trigger `classify-on-insert`, then `net._http_response` stays quiet; connector readback of the last 5 inserts.
+- **004** — U-A to-do capture; U-B grocery deterministic split + aisle rule, client-side, per [prep_004_grocery_rule.md](prep_004_grocery_rule.md) (contract and seed table pinned 2026-09-01); U-C delete the grocery path AND webhook mode from `classify`. Justin close-out: drop trigger `classify-on-insert`, then `net._http_response` stays quiet; connector readback of the last 5 inserts.
 - **005** — U-A swimlanes + card + stripes (`--q1..--q4`); U-B matrix; U-C overlay.
 - **006** — U-A tag sheet on the To-do header.
 - **007** — U-A manifest/sw/icons/standalone; U-B `share_target` (GET → `inbox.html?share=1&title&text&url`) → research insert.
