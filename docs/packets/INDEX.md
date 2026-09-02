@@ -18,7 +18,7 @@ here in the same close-out PR.
 - **Secrets:** placeholders only, everywhere; placeholder examples in issue bodies written without angle brackets (the issue sanitizer strips them). Known secret names: ANTHROPIC_API_KEY, WEBHOOK_SECRET (retires with the webhook), SUPABASE_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 - **File-size gate at session open:** list `web/` and `supabase/functions/` with sizes; any file over 300 KB is a finding and no unit may edit it this run.
 - **Phone-first acceptance:** every unit changing `web/` carries an Actions-for-Justin check on Android at ~390px, light and dark mode.
-- **No AI where process will do.** Model calls in this app after packet 004: **Primer only** (Haiku menu, Sonnet 5 cards). Grocery split/categorization was ruled back to deterministic rules on 2026-09-01 — see [prep_004_grocery_rule.md](prep_004_grocery_rule.md). A unit introducing another model call is a STOP. Packet 004's close-out proof is `grep -rc "api.anthropic.com" web/ supabase/functions/` returning `0` for every file.
+- **No AI where process will do.** Model calls in this app after packet 004: **Primer only** (Haiku menu, Sonnet 5 cards). Grocery split/categorization was ruled back to deterministic rules on 2026-09-01 — see [prep_004_grocery_rule.md](prep_004_grocery_rule.md). A unit introducing another model call is a STOP. Packet 004's close-out proof is `grep -rc "api.anthropic.com" web/ supabase/functions/` returning `0` for every file **except `primer-menu` and `primer-card`, which carry one each once packet 008 lands** — Primer *is* the exception the rule names, and 008 may run before 004.
 
 ## Queue
 
@@ -31,8 +31,8 @@ here in the same close-out PR.
 | [005](build_packet_005_todo_views.md) | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | READY | — |
 | [006](build_packet_006_tag_sheet.md) | Tag sheet: rename / merge-on-collision / reorder / delete-with-reassign via the RPCs; stale `TAGS` fallback retired | READY | — |
 | [007](build_packet_007_pwa.md) | PWA: manifest, HTML-never-cached service worker, icons (prep-generated; Justin uploads them to `web/icons/` before this packet runs), standalone, theme-color; Android share target → Research prefill | READY | — |
-| 008 | Primer backend: `primer-menu` + `primer-card` per the Primer corpus §5, daily card cap, pings | IN PREP — **blocked: corpus not in this repo** (see Prep-2) | — |
-| 009 | Primer UI: Research list / new / coverage menu / carousel; overlay-entered brain dump; capture hook; regression fixtures | IN PREP — needs 008 | — |
+| [008](build_packet_008_primer_backend.md) | Primer backend: `primer-menu` (Haiku) + `primer-card` (Sonnet 5 + web search) per the corpus §5, daily card cap of 20, `verify_jwt = false` so the pings stay fetchable, `getUser()` + RLS as the boundary | READY | — |
+| [009](build_packet_009_primer_ui.md) | Primer UI: `web/research.js` — Research list / new primer / coverage menu / carousel with all ten card renderers; overlay-entered brain dump + capture hook; the five regression fixtures | READY — run after 007 **and** 008 | — |
 
 **Status meanings:** READY — fully contracted, run any time. RUNNING — a session has claimed it. IN PREP — planner prep incomplete, do not run. COMPLETE / STOPPED — see report.
 
@@ -42,6 +42,7 @@ here in the same close-out PR.
 - 003 → 004 → 005 → 006 → 007 → 009: strictly serial — each edits `web/inbox.html`.
 - 004 requires 002 COMPLETE; 009 requires 008 COMPLETE and Prep-2.
 - 008 safe alongside 003–007 (functions only) — **except during 004 U-C**, which deploys through `deploy-supabase` and would race it.
+- 009 requires **both** 007 and 008 COMPLETE: it edits `web/inbox.html` (so it is last in the serial web chain) and it is a client for 008's two functions (so their pings are its premise gate).
 - Recommended solo order: 001 → 002 → 003 → 004 → 005 → 008 → 006 → 007 → 009.
 
 ## Prep record
@@ -54,7 +55,7 @@ here in the same close-out PR.
 
 **Prep-3 (pending, after packet 004 closes):** drop the database webhook trigger `classify-on-insert` on `public.messages` via the Supabase Inbox connector and mirror the drop to `supabase/migrations/` (the baseline file still carries its `create trigger` statement, so skipping the mirror leaves the migration record wrong). Packet 004 deliberately does **not** do this — DDL is never packet work — and does not need to: every row it writes carries a non-null `confidence`, which the webhook skips. Certify by capturing one row and confirming `net._http_response` stays flat. Justin surfaces afterwards: delete the deployed `classify` function and the WEBHOOK_SECRET function secret; keep ANTHROPIC_API_KEY for Primer.
 
-**Prep-2 part 2 (pending, blocks 008) — BLOCKED ON AN ARTEFACT, not on work.** The Primer corpus is not in this repo, not in Drive under that name, and `NewOrbitDigital/primer` is not reachable from the pipe; it lives in another Claude project. Until it is pasted into this project or committed here as `docs/primer_corpus.md`, 008 and 009 cannot be contracted — their JSON shapes are adjudicated verbatim against §5 and inventing them is a FAIL condition. What part 2 must then do: apply the corpus §4 migration (`message_id uuid references public.messages(id) on delete set null` — `messages.id` is uuid, confirmed), keep its own `updated_at` helper (none exists here), and certify with the corpus read-backs. Also still open: confirm `ANTHROPIC_API_KEY` is the live *function secret* name — the deployed `classify` reads that name (grep-verified), which proves what it asks for, not what is set.
+**Prep-2 part 2 (2026-09-02, done) — Primer schema applied; the corpus is in the repo.** Justin supplied the Primer corpus, which is now committed at `docs/primer/` (nine parts, split for review, text unedited). Migration `20260902014310_primer_schema` applied via the Supabase Inbox connector and certified by readback: `primers` 14 columns + `primer_cards` 18 = **32 columns, 8 policies, 2 triggers, 6 indexes**, RLS true on both — exactly what the corpus's rolled-back-transaction validation predicted. Three project-specific decisions taken while firing it, all recorded in the mirror file: this project has **no** existing `updated_at` helper (checked), so the corpus's own is kept; `messages.id` is uuid (confirmed), so the **optional `message_id` FK was added** with `on delete set null` (SPEC D-21 — primers outlive their capture); `verify_jwt` lives in `supabase/config.toml` here, not the dashboard, so it is packet 008's job. **Still open and deliberately not guessable from here:** whether `ANTHROPIC_API_KEY` is *set* as a function secret and whether that Anthropic account is funded. The connector cannot list function secrets; it is packet 008's session-open gate and a Justin surface.
 
 **Prep — packets 003–007 (2026-09-02, done):** all five written in full from the live repo and database. Read for the contracts: `web/inbox.html` at 974 lines, `web/config.js`, both deployed functions, all four migrations, and the live row/tag/quadrant counts recorded in each packet's premise gate. Ruled in the same session: the ` - ` grocery separator and its generic stop-list; the seed table's home in `config.js`; `classify` retiring as a stub; the to-do tag dropdown defaulting to the most recently used tag; **every** insert carrying `confidence: 1` — grocery and to-do — so the still-live webhook skips them until Prep-3 drops the trigger. PWA icons generated in the same session so no unit has to synthesise binary assets — **delivered to Justin for upload to `web/icons/`**, not committed here: the chat connector cannot write binary files and this session's git proxy refuses direct pushes to the repo. Packet 007's asset gate STOPs if they are not on `main` when it opens.
 
@@ -69,8 +70,8 @@ here in the same close-out PR.
 - **005** — written in full: [build_packet_005_todo_views.md](build_packet_005_todo_views.md).
 - **006** — written in full: [build_packet_006_tag_sheet.md](build_packet_006_tag_sheet.md).
 - **007** — written in full: [build_packet_007_pwa.md](build_packet_007_pwa.md). Icons were generated during prep and are uploaded to `web/icons/` by Justin, so no unit synthesises binary assets; the packet's asset gate STOPs if they are missing.
-- **008** — U-A `primer-menu`; U-B `primer-card` + cap 20/day/owner. Corpus contracts verbatim; JSON shape deviations = FAIL.
-- **009** — U-A `web/research.js` + section; U-B capture hook + overlay brain dump; U-C the five regression fixtures.
+- **008** — written in full: [build_packet_008_primer_backend.md](build_packet_008_primer_backend.md). Corpus contracts verbatim; JSON shape deviations and altered prompt text are FAIL, not findings.
+- **009** — written in full: [build_packet_009_primer_ui.md](build_packet_009_primer_ui.md). Four reconciliations the corpus could not know are ruled in it: no ES-module import, no `alert()`, no classifier hook, and the brain dump entered in the overlay.
 
 ## After the packets (joint sessions, never packets)
 
