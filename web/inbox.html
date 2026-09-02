@@ -94,6 +94,18 @@
   }
   .tagchip[aria-selected=true]{background:var(--todo);border-color:var(--todo);color:#fff}
 
+  /* capture options row — To-do only */
+  .capopts{display:flex;align-items:center;gap:.5rem;margin:-.9rem 0 1rem;flex-wrap:wrap}
+  .capopts[hidden]{display:none}
+  .toggle{
+    padding:.3rem .9rem;min-height:40px;
+    border:1px solid var(--line);border-radius:999px;
+    background:transparent;font:inherit;font-size:.78rem;color:var(--dim);cursor:pointer;
+  }
+  .toggle[aria-pressed=true]{background:var(--todo);border-color:var(--todo);color:#fff}
+  .capmsg{margin:-.6rem 0 .9rem;font-size:.8rem;color:var(--late-edge)}
+  .capmsg:empty{display:none}
+
   .capwrap{flex:1;position:relative}
   .capwrap input{width:100%}
   .ac{
@@ -221,6 +233,14 @@
     <button class="primary" id="add">Add</button>
   </div>
 
+  <div class="capopts" id="capopts" hidden>
+    <button class="toggle" id="tgImportant" aria-pressed="false">Important</button>
+    <button class="toggle" id="tgUrgent" aria-pressed="false">Urgent</button>
+    <select class="mini" id="capTag" aria-label="Tag"></select>
+  </div>
+
+  <p class="capmsg" id="capmsg" role="status" aria-live="polite"></p>
+
   <div class="seg" id="seg" role="tablist" aria-label="To-do view" hidden></div>
 
   <div class="tagbar" id="tagbar" hidden></div>
@@ -248,7 +268,8 @@
   var db  = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   var TZ  = cfg.TIMEZONE || 'America/New_York';
   var CATS = cfg.GROCERY_ORDER || ['Other'];
-  var TAGS = (cfg.TAGS || []).slice();   // fallback until todo_tags loads
+  var TAGS = (cfg.TAGS || []).slice();   // fallback until todo_tags loads; alphabetical, drives # autocomplete
+  var TAG_RECENT = [];                   // same tags, ordered most-recently-used first; drives the capture dropdown
 
   var gate = document.getElementById('gate');
   var app  = document.getElementById('app');
@@ -397,12 +418,27 @@
       .then(function(res){ items = res.data || []; render(); });
   }
 
+  // last_used_at desc, nulls last, then tag asc.
+  function byRecent(a, b){
+    var la = a.last_used_at || '', lb = b.last_used_at || '';
+    if(la !== lb){
+      if(!la) return 1;
+      if(!lb) return -1;
+      return la < lb ? 1 : -1;
+    }
+    return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
+  }
+
   function loadTags(){
-    db.from('todo_tags').select('tag').eq('owner', user.id).order('tag')
+    // One query feeds three things: the alphabetical TAGS list, the most-recently-used
+    // dropdown order, and (from packet 005 on) lane_order. Do not add a second query.
+    db.from('todo_tags').select('tag, lane_order, last_used_at').eq('owner', user.id)
       .then(function(res){
         var rows = res.data || [];
         if(rows.length){
-          TAGS = rows.map(function(r){ return r.tag; });
+          TAGS = rows.map(function(r){ return r.tag; }).sort();
+          TAG_RECENT = rows.slice().sort(byRecent).map(function(r){ return r.tag; });
+          renderCapTag();
           render();
         } else if(TAGS.length){
           // First run before the seed migration: push config tags up.
@@ -414,24 +450,101 @@
   }
 
   var CAPTURE_MODE = {
-    todo:     "Add to-dos… (dates, #tags, 'every tuesday')",
+    todo:     "Add a to-do…  #tag to file it",
     grocery:  "Dictate grocery items…",
     event:    "Add events… ('aug 26 to 30', 'dr at 10am')",
     research: "Capture a research idea…",
     note:     "Jot a note…"
   };
 
+  // ---------- capture options (To-do only) ----------
+  var capopts   = document.getElementById('capopts');
+  var capmsg    = document.getElementById('capmsg');
+  var capTagEl  = document.getElementById('capTag');
+  var tgImpEl   = document.getElementById('tgImportant');
+  var tgUrgEl   = document.getElementById('tgUrgent');
+  var capImportant = false, capUrgent = false;
+
+  function capNote(msg){ capmsg.textContent = msg || ''; }
+
+  function renderToggles(){
+    tgImpEl.setAttribute('aria-pressed', capImportant);
+    tgUrgEl.setAttribute('aria-pressed', capUrgent);
+  }
+  tgImpEl.addEventListener('click', function(){ capImportant = !capImportant; renderToggles(); });
+  tgUrgEl.addEventListener('click', function(){ capUrgent = !capUrgent; renderToggles(); });
+
+  // Most recently used tag first; "(no tag)" last. The selection then persists for the
+  // session — nothing resets it after an add — and returns to most-recent on reload.
+  function renderCapTag(){
+    capTagEl.replaceChildren.apply(capTagEl, TAG_RECENT.concat(['']).map(function(tg){
+      var o = document.createElement('option');
+      o.value = tg;
+      o.textContent = tg || '(no tag)';
+      return o;
+    }));
+    capTagEl.value = capTagEl.options.length ? capTagEl.options[0].value : '';
+  }
+
   function updateCapture(){
     var bar = document.getElementById('capbar');
     var mode = CAPTURE_MODE[filter];
     bar.style.display = mode ? '' : 'none';
     if(mode) document.getElementById('capture').placeholder = mode;
+    capopts.hidden = filter !== 'todo';
+    if(filter !== 'todo') capNote('');
+  }
+
+  // To-do capture is fully client-side: the tag, the two Eisenhower axes and the body
+  // are all decided here. No model, no webhook, no due date (D-09, D-10, D-11).
+  function addTodo(el, text){
+    var hash = text.match(/#([a-z0-9-]+)/i);          // first match wins
+    var tag  = hash ? hash[1].toLowerCase() : (capTagEl.value || null);
+    var body = text.replace(/#[a-z0-9-]+/ig, ' ').replace(/\s+/g, ' ').trim();
+    if(!body){ capNote('That is only a tag. Add the to-do itself.'); return; }
+    if(body.length > 280){
+      capNote('That is ' + body.length + ' characters and the limit is 280. Not saved.');
+      return;
+    }
+
+    // Unset means the user never answered, not "no": null/null is Unsorted, while
+    // false/false would read as Eliminate. Only send booleans once one axis is pressed.
+    var answered = capImportant || capUrgent;
+
+    acClose();
+    db.from('messages').insert({
+      session:'personal',
+      body: body,
+      owner: user.id,
+      bucket:'todo',
+      important: answered ? capImportant : null,
+      urgent:    answered ? capUrgent    : null,
+      tag: tag,
+      // Load-bearing: the still-live classify-on-insert trigger skips any row whose
+      // confidence is non-null. Without this the webhook rewrites the tag and stamps
+      // a date. Dropping the trigger is DDL (Prep-3), so the guard ships with the row.
+      confidence: 1
+    }).then(function(res){
+      if(res.error){ capNote('That did not save: ' + res.error.message); return; }
+      if(tag){
+        db.rpc('tag_touch', { p_tag: tag }).then(function(r){
+          if(r.error) console.error('tag_touch failed', r.error);
+        });
+      }
+      capNote('');
+      el.value = '';
+      capImportant = false; capUrgent = false;
+      renderToggles();
+      load();
+      el.focus();
+    });
   }
 
   function add(){
     var el = document.getElementById('capture');
     var text = el.value.trim();
     if(!text || !CAPTURE_MODE[filter]) return;
+    if(filter === 'todo'){ addTodo(el, text); return; }
     el.value = '';
     acClose();
     db.from('messages')

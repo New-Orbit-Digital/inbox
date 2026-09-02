@@ -26,5 +26,5 @@ window.INBOX = {
 };
 
 // Build beacon — bumped by every unit that ships a web/ change. Deploy proof.
-window.INBOX_VERSION = "003-C";
+window.INBOX_VERSION = "004-A";
 console.log("inbox build", window.INBOX_VERSION);
