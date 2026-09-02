@@ -268,6 +268,8 @@
   var db  = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   var TZ  = cfg.TIMEZONE || 'America/New_York';
   var CATS = cfg.GROCERY_ORDER || ['Other'];
+  var KEYWORDS = cfg.GROCERY_KEYWORDS || {};   // seed aisle rules; longest substring wins
+  var PREFS = {};                              // normalize(item) -> category, from grocery_prefs
   var TAGS = (cfg.TAGS || []).slice();   // fallback until todo_tags loads; alphabetical, drives # autocomplete
   var TAG_RECENT = [];                   // same tags, ordered most-recently-used first; drives the capture dropdown
 
@@ -402,6 +404,7 @@
     if(started) return; started = true;
     load();
     loadTags();
+    loadPrefs();
     db.channel('inbox')
       .on('postgres_changes',
         { event:'*', schema:'public', table:'messages', filter:'owner=eq.' + user.id },
@@ -416,6 +419,17 @@
       .order('created_at', { ascending:false })
       .limit(500)
       .then(function(res){ items = res.data || []; render(); });
+  }
+
+  // grocery_prefs is the correction loop's memory. Fetched once at start and again after
+  // a correction is written — never per item, never per keystroke.
+  function loadPrefs(){
+    db.from('grocery_prefs').select('item, category').eq('owner', user.id)
+      .then(function(res){
+        var rows = res.data || [], map = {}, i;
+        for(i = 0; i < rows.length; i++) map[rows[i].item] = rows[i].category;
+        PREFS = map;
+      });
   }
 
   // last_used_at desc, nulls last, then tag asc.
@@ -540,11 +554,142 @@
     });
   }
 
+  // Grocery capture is fully client-side too (prep_004, ruled 2026-09-01): a split rule
+  // and a keyword table replace the model, which was inconsistent on this vocabulary,
+  // cost credit per capture, and failed closed to a single "Other" row.
+
+  // Separators: commas, semicolons, newlines, and " and " / " & " / " - " with the
+  // surrounding spaces REQUIRED, so "sandwich" is never split. A keyword that itself
+  // contains a separator would be torn apart here and could never match — "half and half"
+  // is the only one in today's table — so those phrases are masked out of the text before
+  // the split and restored into each fragment afterwards. See protectedPhrases().
+  var SPLIT_ON = /\s+and\s+|\s+&\s+|\s+-\s+|[,;\n]/i;
+  // Leading filler, stripped at a word boundary and in a loop. A naive prefix strip
+  // would turn "apples" into "pples" and "anchovies" into "chovies".
+  var FILLER = /^(?:pick up|we need|i need|add|buy|get|grab|some|an|a)\s+/i;
+  var TAIL   = /\s+to the (?:grocery )?list$/i;
+  // Generic shopping words only — never a store brand, so a brand stays capturable.
+  var NOT_ITEMS = ['grocery store','grocery','groceries','store','the store',
+                   'list','grocery list','shopping list'];
+
+  // Wrapper for a masked phrase. Contains no separator character, so SPLIT_ON cannot
+  // match inside it and a masked phrase always survives in a single fragment.
+  var MASK_OPEN = '<<', MASK_CLOSE = '>>';
+  var UNMASK = /<<(\d+)>>/g;
+
+  // Separator-bearing keywords, derived from GROCERY_KEYWORDS at runtime rather than
+  // hardcoded, so a future multi-word entry is protected automatically. Built once and
+  // cached; sorted longest-first so a longer phrase masks before a shorter one it overlaps.
+  var PROTECTED = null;
+  function protectedPhrases(){
+    var out, seen, cat, words, i, w;
+    if(PROTECTED) return PROTECTED;
+    out = []; seen = {};
+    for(cat in KEYWORDS){
+      if(!Object.prototype.hasOwnProperty.call(KEYWORDS, cat)) continue;
+      words = KEYWORDS[cat] || [];
+      for(i = 0; i < words.length; i++){
+        w = words[i];
+        if(Object.prototype.hasOwnProperty.call(seen, w)) continue;
+        if(!SPLIT_ON.test(w)) continue;
+        seen[w] = true;
+        out.push(w);
+      }
+    }
+    out.sort(function(a, b){ return b.length - a.length; });
+    PROTECTED = out;
+    return PROTECTED;
+  }
+
+  // Escaped so a future keyword containing a regex metacharacter cannot break the split.
+  function escapeRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function unmask(s, kept){
+    return String(s).replace(UNMASK, function(m, n){
+      var k = kept[Number(n)];
+      return k === undefined ? m : k;
+    });
+  }
+
+  function splitGrocery(text){
+    var src = String(text), kept = [], phrases = protectedPhrases(), parts, out = [], i, f;
+    for(i = 0; i < phrases.length; i++){
+      // The matched substring is what is kept, so the capture's own casing is restored
+      // rather than the table's lowercase spelling.
+      src = src.replace(new RegExp(escapeRe(phrases[i]), 'gi'), function(m){
+        kept.push(m);
+        return MASK_OPEN + (kept.length - 1) + MASK_CLOSE;
+      });
+    }
+    parts = src.split(SPLIT_ON);
+    for(i = 0; i < parts.length; i++){
+      // Unmask BEFORE any word-level rule inspects the fragment, so "some half and half"
+      // reaches the filler strip whole and comes back out as "half and half".
+      f = unmask(parts[i] || '', kept).trim();
+      while(FILLER.test(f)) f = f.replace(FILLER, '');
+      f = f.replace(TAIL, '').trim();
+      if(!f) continue;
+      if(NOT_ITEMS.indexOf(f.toLowerCase()) >= 0) continue;
+      out.push(f);
+    }
+    return out;
+  }
+
+  // 1. an exact grocery_prefs match always wins; 2. otherwise the longest keyword that
+  // appears anywhere in the text — substring, not whole word, which is what makes
+  // "apples" match "apple"; 3. otherwise "Other". Ties on length resolve by
+  // GROCERY_ORDER position: CATS is the outer loop and the > is strict, so the first
+  // category to reach a given length keeps it.
+  function aisleFor(item, prefs){
+    var key = normalize(item), best = '', cat = 'Other', i, j, words, w;
+    if(prefs && Object.prototype.hasOwnProperty.call(prefs, key)) return prefs[key];
+    for(i = 0; i < CATS.length; i++){
+      words = KEYWORDS[CATS[i]];
+      if(!words) continue;
+      for(j = 0; j < words.length; j++){
+        w = words[j];
+        if(w.length > best.length && key.indexOf(w) >= 0){ best = w; cat = CATS[i]; }
+      }
+    }
+    return cat;
+  }
+
+  function addGrocery(el, text){
+    var names = splitGrocery(text), rows = [], i, body;
+    if(!names.length){ capNote('Nothing to add there.'); return; }
+    for(i = 0; i < names.length; i++){
+      // messages_body_check is 1-280 and a dictation run-on must not fail the whole
+      // capture, so a long item is truncated rather than rejected.
+      body = names[i].length > 280 ? names[i].slice(0, 280) : names[i];
+      rows.push({
+        session:'personal',
+        body: body,
+        owner: user.id,
+        bucket:'grocery',
+        grocery_category: aisleFor(body, PREFS),
+        auto: false,          // a rule filed this, not a model
+        // Load-bearing, exactly as on the to-do path: the still-live classify-on-insert
+        // trigger skips any row whose confidence is non-null. Without it the webhook
+        // would re-parse every row with the model. Dropping the trigger is DDL (Prep-3).
+        confidence: 1
+      });
+    }
+    acClose();
+    db.from('messages').insert(rows).then(function(res){
+      if(res.error){ capNote('That did not save: ' + res.error.message); return; }
+      capNote('');
+      el.value = '';
+      load();
+      el.focus();
+    });
+  }
+
   function add(){
     var el = document.getElementById('capture');
     var text = el.value.trim();
     if(!text || !CAPTURE_MODE[filter]) return;
     if(filter === 'todo'){ addTodo(el, text); return; }
+    if(filter === 'grocery'){ addGrocery(el, text); return; }
     el.value = '';
     acClose();
     db.from('messages')
@@ -638,6 +783,7 @@
       category: category, updated_at: new Date().toISOString()
     }).then(function(res){
       if(res.error) console.error('pref save failed', res.error);
+      loadPrefs();   // U004-B: the correction must apply to the next capture
     });
   }
 
