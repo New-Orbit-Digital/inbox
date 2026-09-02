@@ -137,17 +137,6 @@
   .meta{display:flex;align-items:center;gap:.4rem;margin-top:.55rem;flex-wrap:wrap}
   .when{font-size:.72rem;color:var(--dim);margin-right:auto;font-variant-numeric:tabular-nums}
   .when .auto{color:var(--research)}
-  .chip{
-    padding:.3rem .6rem;border:1px solid var(--line);border-radius:999px;
-    background:transparent;font:inherit;font-size:.75rem;color:var(--dim);cursor:pointer;
-  }
-  .chip:hover{border-color:var(--dim)}
-  .chip[aria-pressed=true]{color:#fff;border-color:transparent}
-  .chip[data-b=todo][aria-pressed=true]{background:var(--todo)}
-  .chip[data-b=grocery][aria-pressed=true]{background:var(--grocery)}
-  .chip[data-b=research][aria-pressed=true]{background:var(--research)}
-  .chip[data-b=note][aria-pressed=true]{background:var(--note)}
-  .chip[data-b=done][aria-pressed=true]{background:var(--done)}
   select.mini, input.mini[type=date]{
     font:inherit;font-size:.75rem;color:var(--dim);
     border:1px solid var(--line);border-radius:999px;
@@ -237,7 +226,7 @@
   <div class="tagbar" id="tagbar" hidden></div>
 
   <ul id="list"></ul>
-  <p class="keys">j / k move · 1 to-do · 2 grocery · 3 research · 4 note · x done</p>
+  <p class="keys">j / k move · x done</p>
 
   <nav class="nav" id="nav" role="tablist" aria-label="Sections"></nav>
 </div>
@@ -303,7 +292,6 @@
     { f:'event',    label:'Events',   accent:'var(--event)', flag:'events' },
     { f:'done',     label:'Done',     accent:'var(--done)' }
   ];
-  var CHIP_BUCKETS = ['todo','grocery','research','note'];
   var normalize = function(s){ return s.toLowerCase().trim(); };
 
   function todayLocal(){
@@ -530,18 +518,6 @@
     db.from('messages').update(changes).eq('id', id).then(load);
   }
 
-  function fileAs(m, bucket){
-    var changes = { bucket:bucket, auto:false };
-    if(bucket === 'todo'){
-      changes.due_date = m.due_date || todayLocal();
-      changes.tag = m.tag || 'personal';
-    }
-    if(bucket === 'grocery'){
-      changes.grocery_category = m.grocery_category || 'Other';
-    }
-    patch(m.id, changes);
-  }
-
   function savePref(m, category){
     patch(m.id, { grocery_category: category });
     db.from('grocery_prefs').upsert({
@@ -709,24 +685,6 @@
     t.className = 'when';
     t.innerHTML = when(m.created_at) + (m.auto ? ' · <span class="auto">auto</span>' : '');
     meta.appendChild(t);
-
-    CHIP_BUCKETS.concat(['done']).forEach(function(bk){
-      var btn = document.createElement('button');
-      btn.className = 'chip';
-      btn.dataset.b = bk;
-      btn.textContent = bk === 'todo' ? 'To-do'
-                      : bk === 'grocery' ? 'Grocery'
-                      : bk === 'research' ? 'Research'
-                      : bk === 'note' ? 'Note' : 'Done';
-      var on = bk === 'done' ? m.status === 'done' : m.bucket === bk;
-      btn.setAttribute('aria-pressed', on);
-      btn.addEventListener('click', function(){
-        if(bk === 'done') complete(m);
-        else if(!on) fileAs(m, bk);
-        else patch(m.id, { bucket:null, auto:false });
-      });
-      meta.appendChild(btn);
-    });
     return meta;
   }
 
@@ -1029,10 +987,6 @@
 
     if(e.key === 'j'){ active = Math.min(active + 1, rows.length - 1); render(); }
     else if(e.key === 'k'){ active = Math.max(active - 1, 0); render(); }
-    else if(e.key === '1'){ fileAs(m, 'todo'); }
-    else if(e.key === '2'){ fileAs(m, 'grocery'); }
-    else if(e.key === '3'){ fileAs(m, 'research'); }
-    else if(e.key === '4'){ fileAs(m, 'note'); }
     else if(e.key === 'x'){ complete(m); }
     else return;
     e.preventDefault();
