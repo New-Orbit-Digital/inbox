@@ -39,6 +39,9 @@ in code.
 
 **Constraints that shape design:** `messages.body` is 1–280 chars (Primer brain dumps therefore
 live on `primers.brain_dump`, entered in the overlay). The DB webhook (`classify-on-insert`)
-embeds `WEBHOOK_SECRET` in its trigger definition and retires in packet 004. `session='personal'`
-on app rows is legacy-required (NOT NULL). Timezone America/New_York; day-rollover env vars
-exist but rollover logic is retired with dates.
+embeds `WEBHOOK_SECRET` in its trigger definition. Packet 004 makes it unnecessary — every row it
+writes carries a non-null `confidence`, which the webhook skips — and **Prep-3** then drops the
+trigger and mirrors the drop, because DDL is never packet work. `session='personal'`
+on app rows is legacy-required (NOT NULL). Timezone America/New_York; the day-rollover setting
+is retired with dates — packet 005 removes `DAY_ROLLOVER_HOUR` from `web/config.js`, and after
+packet 004 the edge function reads no env vars at all, so any that remain configured are unread.

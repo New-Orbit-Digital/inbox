@@ -1,6 +1,36 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-09-02 — Prep-2 (half) fired; packets 003–007 contracted
+- **Migration `20260902000812_live_wall_retirement`** applied via the Supabase Inbox connector and
+  certified by readback: the five anon/`owner is null` policies dropped from `public.messages`, the
+  2 `owner is null` rows purged (counts shown to Justin first — both were `session='test'` smoke
+  rows from 2026-08-01). After: `owner is null` = 0, `messages` = 214, one policy left
+  (`owner full access`). The repo half of the live-wall cut is packet 003 U-C.
+- **Packets 003, 004, 005, 006 and 007 written in full and flipped READY** — bottom-nav shell,
+  capture, to-do views, tag sheet, PWA. Contracts pinned against `web/inbox.html` at 974 lines and
+  the live database read the same day.
+- **Three open questions from `prep_004_grocery_rule.md` ruled:** ` - ` is a grocery split
+  separator with a generic-word stop-list; the seed keyword table lives in `web/config.js`;
+  `classify` retires as a ping-only stub rather than a deleted directory, because deleting a
+  function's directory undeploys nothing.
+- **`SPEC.md` D-18 corrected** — it still described the Haiku grocery parse, superseded 2026-09-01.
+  D-26 records the database half of the live-wall cut as done.
+- **PWA icons generated** (three PNGs for `web/icons/`) so no packet unit has to synthesise binary
+  assets. They are **delivered to Justin for upload** rather than committed here: the chat connector
+  cannot write binary files and the session's git proxy refuses direct pushes to this repo. Packet
+  007's asset gate STOPs if they are not on `main` when it opens. Their upload deploys the Worker
+  with three new files and no HTML or JS change, so `INBOX_VERSION` stays at `001-A`.
+- **`SPEC.md` D-10 clarified:** an untouched capture inserts `null`/`null` for `important`/`urgent`
+  (Unsorted); pressing one toggle answers both. Writing `false`/`false` would render every casual
+  capture as Q4 Eliminate — the failure was caught reviewing packet 004 against packet 005's
+  quadrant derivation before either shipped.
+- **Prep-3 defined and scheduled:** dropping the `classify-on-insert` trigger is DDL, so it leaves
+  packet 004 and becomes a prep session with a mirror migration. Packet 004 is safe with the trigger
+  live because every row it writes carries a non-null `confidence`, which the webhook skips.
+- **Recorded as blocking:** the Primer corpus is not in this repo or reachable from the pipe, so
+  packets 008 and 009 cannot be contracted and Prep-2 part 2 (the Primer schema) cannot run.
+---
 ## 2026-09-01 — Executor auth moved to the Claude subscription
 - **`claude.yml` switched to `claude_code_oauth_token`** (`e6a3b70`), replacing the API-key auth line.
   Executor runs now bill the Claude subscription instead of pay-as-you-go API credits. The token is
