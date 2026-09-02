@@ -22,16 +22,9 @@
   `archive/live-wall/` and `PUBLIC_HOST` (003); drop the five anon/`owner is null` policies and
   purge `owner is null` rows with counts shown first (Prep-2 DDL); `session` column stays for now.
 - **[low] `todo_tags.description`** unused since auto-tagging died; drop in a future prep DDL.
-- **[HIGH — Justin paste] Executor auth is on API billing, and that is what drained the credits.**
-  `claude.yml` passes `anthropic_api_key`, so every packet issue runs an Opus build session against
-  pay-as-you-go API credits, while this planner session bills the Claude subscription. The balance
-  ran dry mid-packet-002 (executor runs 33351757525 / 33352038557 errored; the app's grocery call
-  then returned `anthropic 400: credit balance is too low`). **Correction to the earlier note:**
-  minting the token does NOT need `/install-github-app` — that flow is an optional convenience. The
-  command is `claude setup-token` in the Claude Code CLI, which prints a one-year token. Fix: mint
-  it, add repo secret CLAUDE_CODE_OAUTH_TOKEN, and change the one auth line in `claude.yml` to
-  `claude_code_oauth_token: (that secret)`. Executor then bills the subscription like the ads-agent
-  work. Docs: code.claude.com/docs/en/authentication, /github-actions.
+- **[CLOSED 2026-09-01] Executor auth off API billing.** The swap landed 2026-09-01 (`e6a3b70`):
+  `claude.yml` now passes `claude_code_oauth_token`, so executor runs bill the Claude subscription.
+  The token is minted with `claude setup-token`; the secret is named CLAUDE_CODE_OAUTH_TOKEN.
 - **[note] The app's own model call cannot use the subscription token.** `classify` calls the
   Anthropic API directly from an edge function, so ANTHROPIC_API_KEY (the Supabase function secret)
   stays on API billing forever. A small credit balance must exist or grocery captures degrade to a

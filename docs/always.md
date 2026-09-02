@@ -18,7 +18,8 @@ Deno edge functions, password-primary auth with email-link fallback. Anthropic A
 Primer cards.
 
 **Pipe:** planner (chat / Cowork session) files `@claude` issues → Claude Code Action (on
-`anthropic_api_key`) builds on a branch → planner opens the PR, adjudicates the diff, merges on
+`claude_code_oauth_token`, so executor runs bill the Claude subscription, not pay-as-you-go API
+credits) builds on a branch → planner opens the PR, adjudicates the diff, merges on
 PASS where authorized → Actions deploy (`deploy-worker`, `deploy-supabase`) → Justin verifies on
 the deployed app. The `main` ruleset (PR required, no bypass) is the fire-gate. Packets:
 `docs/packets/INDEX.md`.
