@@ -30,7 +30,7 @@ here in the same close-out PR.
 | [004](build_packet_004_capture.md) | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → **deterministic client-side split + aisle rule, no model call**; `classify` reduced to a ping-only stub; the DB trigger is dropped afterwards by **Prep-3**, not by the packet (DDL is never packet work) | READY | — |
 | [005](build_packet_005_todo_views.md) | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | READY | — |
 | [006](build_packet_006_tag_sheet.md) | Tag sheet: rename / merge-on-collision / reorder / delete-with-reassign via the RPCs; stale `TAGS` fallback retired | READY | — |
-| [007](build_packet_007_pwa.md) | PWA: manifest, HTML-never-cached service worker, icons (committed in prep), standalone, theme-color; Android share target → Research prefill | READY | — |
+| [007](build_packet_007_pwa.md) | PWA: manifest, HTML-never-cached service worker, icons (prep-generated; Justin uploads them to `web/icons/` before this packet runs), standalone, theme-color; Android share target → Research prefill | READY | — |
 | 008 | Primer backend: `primer-menu` + `primer-card` per the Primer corpus §5, daily card cap, pings | IN PREP — **blocked: corpus not in this repo** (see Prep-2) | — |
 | 009 | Primer UI: Research list / new / coverage menu / carousel; overlay-entered brain dump; capture hook; regression fixtures | IN PREP — needs 008 | — |
 
@@ -68,7 +68,7 @@ here in the same close-out PR.
 - **004** — written in full: [build_packet_004_capture.md](build_packet_004_capture.md). Three open questions from prep_004 were ruled 2026-09-02: ` - ` is a split separator with a generic stop-list; the seed table lives in `web/config.js`; `classify` becomes a ping-only stub rather than a deleted directory (deleting the directory would leave the deployed v12 running).
 - **005** — written in full: [build_packet_005_todo_views.md](build_packet_005_todo_views.md).
 - **006** — written in full: [build_packet_006_tag_sheet.md](build_packet_006_tag_sheet.md).
-- **007** — written in full: [build_packet_007_pwa.md](build_packet_007_pwa.md). Icons were generated and committed during prep so no unit synthesises binary assets.
+- **007** — written in full: [build_packet_007_pwa.md](build_packet_007_pwa.md). Icons were generated during prep and are uploaded to `web/icons/` by Justin, so no unit synthesises binary assets; the packet's asset gate STOPs if they are missing.
 - **008** — U-A `primer-menu`; U-B `primer-card` + cap 20/day/owner. Corpus contracts verbatim; JSON shape deviations = FAIL.
 - **009** — U-A `web/research.js` + section; U-B capture hook + overlay brain dump; U-C the five regression fixtures.
 
