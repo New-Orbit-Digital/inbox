@@ -8,21 +8,27 @@
   with `deno-version: v2.x`, so `deno check` executes in packets 002 and 008. Until it lands, packets
   fall back to planner read-through, as 001 did. Justin paste.
 - **[Justin surface] Delete the old `textwall` Worker** in the personal Cloudflare account (the
-  `justin-a-bost` subdomain). Removes the wall pages from the internet.
+  `justin-a-bost` subdomain). Removes the wall pages from the internet. **Unblocked 2026-09-02** —
+  packet 003 U-C deleted the last repo reference, so nothing points at it any more.
 - **[Justin surface] Delete the unused branches** `claude/pipe-fixes-20260831` and
-  `claude/packet-002-ready-20260831` (superseded; the connector cannot delete branches).
+  `claude/packet-002-ready-20260831` (superseded; the connector cannot delete branches). Add packet
+  003's merged branches to the same sweep: `claude/issue-27-20260902-1229`,
+  `claude/issue-29-20260902-1259`, `claude/issue-31-20260902-1339`, `planner/003-running-20260902`,
+  `planner/003-closeout-20260902`.
 - **[low] Serialize deploys:** add `concurrency: { group: deploy-supabase, cancel-in-progress: false }` to `deploy-supabase.yml` (and the worker equivalent) so two close merges cannot race and overwrite each other's function deploy. Until then, packets that deploy functions run strictly one at a time. Justin paste.
 - **[low] Pin wrangler 4 in `deploy-worker.yml`** (`wranglerVersion: "4.127.1"` under `with:`) —
   the action's default 3.90 warns itself out of date. Justin paste; not blocking.
 - **[normal] Calendar rework.** Events tab hidden; link-based Google Calendar approach is the
-  weakest part of the app. Own effort later.
+  weakest part of the app. Own effort later. Since 2026-09-02 the section is behind
+  `SHOW_EVENTS = false` in `web/inbox.html` — one flag, one use, flip it when the rework ships.
 - **[normal] Habits / recurring items.** Removed with dates (4 items deleted 2026-08-30, bodies
   in the prep chat). Revisit as its own segment.
-- **[PARTLY CLOSED 2026-09-02 → rest in 003] Live wall cut entirely (ruled 2026-08-31):** the
-  database half is done — migration `20260902000812_live_wall_retirement` dropped the five
-  anon/`owner is null` policies and purged the 2 `owner is null` rows (counts shown first;
-  certified by readback). Remaining: delete `archive/live-wall/` and `PUBLIC_HOST` in packet
-  003 U-C, and Justin deletes the old `textwall` Worker. `session` column stays for now.
+- **[CLOSED 2026-09-02] Live wall cut entirely (ruled 2026-08-31).** Both halves are done: the
+  database half in Prep-2 (`20260902000812_live_wall_retirement` — five anon/`owner is null` policies
+  dropped, 2 rows purged, certified by readback) and the repo half in packet 003 U-C
+  (`archive/live-wall/` deleted, `PUBLIC_HOST` removed from `web/config.js`). Confirmed while
+  adjudicating: the only readers of `PUBLIC_HOST` were the two deleted wall files. The `session`
+  column stays for now. The old `textwall` Worker is tracked as its own Justin surface above.
 - **[low] `todo_tags.description`** unused since auto-tagging died; drop in a future prep DDL.
   Packet 006's close-out confirms it is still unused.
 - **[CLOSED 2026-09-01] Executor auth off API billing.** The swap landed 2026-09-01 (`e6a3b70`):
@@ -82,3 +88,22 @@
 - **[low] `messages.session`** is NOT NULL and every insert path hardcodes `'personal'`. It has had
   no meaning since the wall died. Drop it in a future prep DDL, after 009, when no packet is
   mid-flight.
+
+## 2026-09-02 — packet 003 close-out (added this close-out)
+- **[HIGH → packet 005, ruled and accepted] The app has no tap-to-complete.** Packet 003 U-B removed
+  the bucket chip row, which held the only pointer-driven caller of `complete()`. Its one remaining
+  caller is the `x` key, and `.keys` is hidden under `@media (hover:none)` — so on the phone a to-do,
+  research or note card cannot be completed or un-completed, and the recurrence roll-forward inside
+  `complete()` is keyboard-only. Grocery is unaffected (its checkbox writes `status` directly).
+  Justin ruled 2026-09-02 to accept the gap rather than add an interim button; 004 runs first, so it
+  spans two packets. **Packet 005's completion affordance is load-bearing, not cosmetic, and must
+  cover research and notes as well as to-dos.** Detail in the
+  [003 run report §5.2](packets/reports/packet_003_report_20260902.md).
+- **[process, applied to INDEX] A pinned proof can contradict a pinned behaviour.** Packet 003 U-A
+  demanded a `tw-theme` carry-over *and* zero occurrences of that string. The behaviour wins, the
+  executor surfaces the conflict instead of gaming the grep, and the planner records an erratum. Now
+  a session-wide rule in `docs/packets/INDEX.md`: write greps that name the permitted occurrences.
+- **[note] The Unsorted premise is now structural.** Nothing in the app can write a null bucket since
+  `fileAs` and the un-file `patch({bucket:null})` were deleted. A non-zero
+  `bucket is null and status='open'` reading at a future session open means something outside the app
+  wrote it — that is a STOP and an investigation, not a re-ruling.
