@@ -87,9 +87,25 @@ filed it "Other"). `soap` → Household & Cleaning follows Justin's existing his
   `grocery_prefs` row so the next capture is correct.
 - No network call to `api.anthropic.com` anywhere in the grocery path; zero API credit consumption.
 
-## Still open, for whoever writes 004 in full
+## Ruled 2026-09-02 — the three open questions are closed
 
-- Whether the leading-fragment case above is dropped, kept, or split on ` - ` as well.
-- Whether `classify` is deleted outright at U-C or reduced to a ping-only stub.
-- Whether the seed table lives in `web/config.js` (editable alongside `GROCERY_ORDER`) or inline in
-  `web/inbox.html`. `config.js` is the better home — it is already the file that holds the aisle list.
+Packet 004 is now written in full: [build_packet_004_capture.md](build_packet_004_capture.md).
+
+- **The leading fragment:** ` - ` (spaces required) is a split separator like any other, and a
+  resulting fragment that is exactly a generic shopping word is dropped — `grocery store`,
+  `grocery`, `groceries`, `store`, `the store`, `list`, `grocery list`, `shopping list`. Generic
+  terms only; **no store brand names**, so a brand can still be captured as an item.
+  `grocery store - toilet paper, salad, tomatoes, cucumbers` → four rows, no fifth.
+- **`classify` becomes a ping-only stub, not a deleted directory.** Removing
+  `supabase/functions/classify/` from the repo undeploys nothing — `deploy-supabase` deploys what
+  is in its checkout, so the live v12 would keep running and keep answering the webhook. An inert
+  stub returning `410` is what actually kills the endpoint. Deleting the deployed function is a
+  Justin surface afterwards.
+- **The seed table lives in `web/config.js`,** as recommended, beside `GROCERY_ORDER`.
+
+One thing this document did not anticipate, added by the packet: **every row packet 004 writes —
+grocery and to-do alike — inserts with `confidence: 1`**, because the still-live
+`classify-on-insert` trigger skips any row whose `confidence` is non-null. That keeps the model
+away from these rows for the whole window between the merge and **Prep-3**, the separate prep
+session that drops the trigger. On the to-do path it matters even more than on grocery: without it
+the webhook's `defaultTodo` rewrites the tag to `personal` and stamps a retired `due_date`.
