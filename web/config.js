@@ -1,6 +1,6 @@
 // Fill these in from Supabase → Project Settings → API.
 // The publishable key is designed to be public; RLS protects the data.
-window.TEXTWALL = {
+window.INBOX = {
   SUPABASE_URL: "https://qaabxgldjluqyccwhjzf.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_174ADmpQYYVspwAiMCL_ig_sAxe5ymU",
 
@@ -29,5 +29,5 @@ window.TEXTWALL = {
 };
 
 // Build beacon — bumped by every unit that ships a web/ change. Deploy proof.
-window.INBOX_VERSION = "001-A";
+window.INBOX_VERSION = "003-A";
 console.log("inbox build", window.INBOX_VERSION);
