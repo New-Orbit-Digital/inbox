@@ -3,13 +3,17 @@
 ## 2026-08-31 — Prep-1b close-out (added this close-out)
 - **Closed this session — pipe proofs.** Executor smoke, both deploy workflows, cutover at the
   new URL, branch-protection refusal, auth redirect URL: all green 2026-08-31.
-- **[high] Executor runner has no `deno`** (packet 001 finding: `command not found`, and the sandbox
-  refused the installer). Add a step to `claude.yml` before "Run Claude Code": `denoland/setup-deno@v2`
-  with `deno-version: v2.x`, so `deno check` executes in packets 002 and 008. Until it lands, packets
-  fall back to planner read-through, as 001 did. Justin paste.
+- **[CLOSED 2026-09-02] Executor runner has no `deno`** (packet 001 finding: `command not found`).
+  Verified 2026-09-02: `.github/workflows/claude.yml` already carries a
+  `denoland/setup-deno@v2` step (`deno-version: v2.x`) before "Run Claude Code", and
+  `--allowedTools` already permits `Bash(deno check:*)` and `Bash(node --check:*)`. Nothing to paste.
+  Packets 004 and 008 can rely on `deno check` running for real.
 - **[Justin surface] Delete the old `textwall` Worker** in the personal Cloudflare account (the
-  `justin-a-bost` subdomain). Removes the wall pages from the internet. **Unblocked 2026-09-02** —
-  packet 003 U-C deleted the last repo reference, so nothing points at it any more.
+  `justin-a-bost` subdomain). **Still live as of 2026-09-02** — `https://textwall.justin-a-bost.workers.dev/`
+  serves the wall submit page. It is inert (Prep-2 dropped the anon insert policies, so a submission
+  is now refused by RLS) but it is still public and still points at the live database. It is in a
+  *different* Cloudflare account from the agency one that hosts `inbox` (`justin-dec`) — switch
+  accounts in the Cloudflare account picker to find it. Unblocked in the repo since packet 003 U-C.
 - **[Justin surface] Delete the unused branches** `claude/pipe-fixes-20260831` and
   `claude/packet-002-ready-20260831` (superseded; the connector cannot delete branches). Add packet
   003's merged branches to the same sweep: `claude/issue-27-20260902-1229`,
@@ -18,6 +22,10 @@
 - **[low] Serialize deploys:** add `concurrency: { group: deploy-supabase, cancel-in-progress: false }` to `deploy-supabase.yml` (and the worker equivalent) so two close merges cannot race and overwrite each other's function deploy. Until then, packets that deploy functions run strictly one at a time. Justin paste.
 - **[low] Pin wrangler 4 in `deploy-worker.yml`** (`wranglerVersion: "4.127.1"` under `with:`) —
   the action's default 3.90 warns itself out of date. Justin paste; not blocking.
+- **[low] Drop the temporary `show_full_output: true` from `claude.yml`.** Added 2026-09-01 to surface
+  the SDK's suppressed error text during an auth failure; its own comment says remove it once
+  diagnosed. Auth has been healthy since (three packet-003 units ran clean on 2026-09-02), so the
+  line is now just extra output in the Actions log. Justin paste.
 - **[normal] Calendar rework.** Events tab hidden; link-based Google Calendar approach is the
   weakest part of the app. Own effort later. Since 2026-09-02 the section is behind
   `SHOW_EVENTS = false` in `web/inbox.html` — one flag, one use, flip it when the rework ships.
@@ -38,6 +46,15 @@
   Anthropic API directly from an edge function, so ANTHROPIC_API_KEY (the Supabase function secret)
   stays on API billing forever. A small credit balance must exist or grocery captures degrade to a
   single "Other" row. This is unrelated to the executor swap; both need doing.
+- **[EVIDENCE 2026-09-02] The runtime Anthropic call is currently failing.** Read from the live
+  table: every grocery capture since the evening of 2026-08-31 landed as a single row with
+  `grocery_category = 'Other'`, `confidence = 0`, `auto = false` — that is exactly `classify`'s catch
+  path, not a parse result. Three "apples, bread and milk" captures on 2026-09-01 each produced one
+  such row instead of three. The last genuinely auto-classified rows are from earlier on 2026-08-31.
+  The key has worked for months, so the likely cause is an empty API credit balance rather than a
+  missing secret — consistent with the executor having drained the credits before the 2026-09-01 swap.
+  **Packet 004 makes this moot for grocery** (deterministic rules, no model call). It still blocks
+  Primer, which bills the API.
 - **[RULED 2026-09-01 → packet 004] Grocery drops the model; deterministic rules replace it.**
   Supersedes the 2026-08-29 ruling that grocery keeps AI for the split. Split on commas/and/&/newlines,
   categorize by `grocery_prefs` exact match → longest keyword match → "Other". Placement ruled:
@@ -47,7 +64,7 @@
 - **[note] Until 004 lands, grocery captures need a funded API credit balance.** The deployed
   `classify` still calls Anthropic for the grocery split; with the balance at zero the error path files
   one row as "Other" (`confidence 0, auto false`). Either fund the balance or accept single-row grocery
-  captures until 004.
+  captures until 004. **As of 2026-09-02 this is the live behaviour** — see the evidence item above.
 - **[Justin surface] Retire Primer artifacts:** delete Supabase project `dihrtmwbaycmilvcvcom`;
   archive `NewOrbitDigital/primer`; remove the Supabase Primer connector from the account.
 - **[note → 004] WEBHOOK_SECRET** retires with the trigger; treat as burned if it ever appears
@@ -63,7 +80,9 @@
   of the corpus's 18 open questions are already answered, so no packet re-litigates them.
 - **[Justin surface, blocks 008 U-B] Confirm ANTHROPIC_API_KEY is set as a Supabase function
   secret, and that the Anthropic account behind it has credit.** The connector cannot list function
-  secrets, so this cannot be checked from a session — it is packet 008's session-open gate. Primer
+  secrets, so this cannot be checked from a session — it is packet 008's session-open gate. The
+  secret lives in the Supabase dashboard for project `qaabxgldjluqyccwhjzf` under Edge Functions →
+  Secrets; it is **not** a GitHub secret and has nothing to do with CLAUDE_CODE_OAUTH_TOKEN. Primer
   bills the API, not the Claude subscription: roughly $0.003 for a menu call, $0.01–0.09 per card,
   $0.25–0.60 for a research-mode primer. `SEARCH_BUDGET` in `primer-card` is the dial.
 - **[note] Primer's cost model is the reason `primer-card` carries a daily cap.** 20 cards per
@@ -107,3 +126,6 @@
   `fileAs` and the un-file `patch({bucket:null})` were deleted. A non-zero
   `bucket is null and status='open'` reading at a future session open means something outside the app
   wrote it — that is a STOP and an investigation, not a re-ruling.
+- **[process] Check a "Justin paste" item against the file before repeating it.** The `setup-deno`
+  item survived four close-outs after it had already been applied. A backlog item naming a specific
+  file should be verified against that file at close-out, not carried forward on faith.
