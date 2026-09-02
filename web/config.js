@@ -4,9 +4,6 @@ window.INBOX = {
   SUPABASE_URL: "https://qaabxgldjluqyccwhjzf.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_174ADmpQYYVspwAiMCL_ig_sAxe5ymU",
 
-  // Shown under the QR code on the wall. No protocol, no trailing slash.
-  PUBLIC_HOST: "textwall.justin-a-bost.workers.dev",
-
   // Used to render event times and prefill Google Calendar links.
   TIMEZONE: "America/New_York",
 
@@ -29,5 +26,5 @@ window.INBOX = {
 };
 
 // Build beacon — bumped by every unit that ships a web/ change. Deploy proof.
-window.INBOX_VERSION = "003-B";
+window.INBOX_VERSION = "003-C";
 console.log("inbox build", window.INBOX_VERSION);
