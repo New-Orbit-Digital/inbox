@@ -1,29 +1,35 @@
-# current.md — as of 2026-09-02 (ALL PACKETS 003–009 READY; PREP-2 COMPLETE)
+# current.md — as of 2026-09-02 (PACKET 003 COMPLETE; 004–009 READY)
 
 ## Gates at next open
 - `select count(*) from todo_tags` via Supabase Inbox returns a number (binding proof; 8 today).
 - `select version, name from public.migration_versions(2)` = `20260902020131 primer_realtime`, `20260902014310 primer_schema`.
 - `select tablename from pg_publication_tables where pubname='supabase_realtime' and schemaname='public';` = `messages`, `primer_cards`, `primers`. Publication membership is invisible to a schema readback, so it gets its own gate.
 - `select count(*) from public.messages where owner is null` = **0**, and `pg_policies` shows exactly one policy on `public.messages` (`owner full access`).
-- `select count(*) from public.messages where bucket is null and status = 'open'` = **0** — this is packet 003's premise for dropping the Unsorted segment. Non-zero is a STOP.
-- Cheap, no-connector gates: `https://inbox.justin-dec.workers.dev/config.js` → `INBOX_VERSION` (`001-A` until 003 lands); `https://qaabxgldjluqyccwhjzf.supabase.co/functions/v1/health`; `…/functions/v1/classify?ping=1` → `{"classify_version":"002-A"}`.
+- `select count(*) from public.messages where bucket is null and status = 'open'` = **0**. Packet 003 made this permanent rather than merely current: `fileAs` and the un-file `patch({bucket:null})` were the only writers of a null bucket and both are deleted. A non-zero reading now means something outside the app wrote one — STOP and find out what.
+- Cheap, no-connector gates: `https://inbox.justin-dec.workers.dev/config.js` → `INBOX_VERSION` (**`003-C`** until 004 lands); `https://qaabxgldjluqyccwhjzf.supabase.co/functions/v1/health`; `…/functions/v1/classify?ping=1` → `{"classify_version":"002-A"}`.
 
 ## State
-- **Packets 001 and 002 COMPLETE. 003 through 009 are all written in full and READY.** Nothing is left IN PREP.
-- **Prep-2 complete 2026-09-02.** Part 1: the live wall is gone from the database (`20260902000812_live_wall_retirement`; five anon/`owner is null` policies dropped, 2 test rows purged). Its repo half is packet 003 U-C. Part 2: the Primer corpus arrived and is committed at `docs/primer/`; migration `20260902014310_primer_schema` applied and certified — 32 columns, 8 policies, 2 triggers, 6 indexes, RLS on both, `primers_message_fk` present. Part 2b: `20260902020131_primer_realtime` put both Primer tables on the `supabase_realtime` publication, which previously carried only `messages`.
+- **Packets 001, 002 and 003 COMPLETE. 004 through 009 are written in full and READY.** Nothing is IN PREP.
+- **Packet 003 ran and closed 2026-09-02** — all three units PASS, see [the run report](packets/reports/packet_003_report_20260902.md). The shell is now a fixed bottom nav with five sections (To-do · Grocery · Research · Notes · Done); Events is behind `SHOW_EVENTS = false`; there is no Unsorted segment; cross-filing (bucket chips, `fileAs`, keys 1–4) is gone; the Swimlanes/Matrix segmented control exists and is inert; `window.TEXTWALL` → `window.INBOX`, theme key `tw-theme` → `inbox-theme` with a one-time carry-over.
+- **Live wall fully cut.** Database half in Prep-2 (`20260902000812_live_wall_retirement`), repo half in 003 U-C (`archive/live-wall/` deleted, `PUBLIC_HOST` removed). Remaining: Justin deletes the old `textwall` Worker in his personal Cloudflare account.
+- **Prep-2 complete 2026-09-02.** The Primer corpus is committed at `docs/primer/`; migration `20260902014310_primer_schema` applied and certified — 32 columns, 8 policies, 2 triggers, 6 indexes, RLS on both, `primers_message_fk` present. `20260902020131_primer_realtime` put both Primer tables on the `supabase_realtime` publication, which previously carried only `messages`.
 - Live shape 2026-09-02: `messages` 214, `todo_tags` 8, `grocery_prefs` 14, `primers` 0, `primer_cards` 0. Open rows: to-do 14, research 7, notes 4, grocery 2, events 0, unbucketed 0. Open to-dos by quadrant: 4 Q1, 5 Q2, 5 Unsorted, 0 untagged. Research captures with no primer yet: 10 (7 open, 3 done).
-- Deployed: `classify` v12 (`002-A`), `health` v1 (`001-B`). Worker serving `INBOX_VERSION = "001-A"`.
+- Deployed: `classify` v12 (`002-A`), `health` v1 (`001-B`). Worker serving `INBOX_VERSION = "003-C"`.
 - Supabase Auth: Site URL `https://inbox.justin-dec.workers.dev/inbox.html`; redirect `…/**`.
 - Executor auth is `claude_code_oauth_token` since 2026-09-01 (`e6a3b70`) — executor runs bill the Claude subscription.
 
+## Open behavioural gap — no tap-to-complete until packet 005
+Packet 003 U-B removed the bucket chip row, which held the only pointer-driven caller of `complete()`. Its one remaining caller is the `x` key, and the `.keys` hint is hidden under `@media (hover:none)`. **On the phone there is currently no way to complete or un-complete a to-do, research or note card**, and the recurrence roll-forward inside `complete()` is keyboard-only. Grocery is unaffected — its checkbox calls `patch(m.id, {status:'done'})` directly. Justin ruled 2026-09-02 to accept the gap; packet 005 closes it, and 004 runs first. **Packet 005's completion affordance is load-bearing, not cosmetic, and must cover research and notes as well as to-dos.**
+
 ## Pending, in order
-1. **Run packet 003** in a fresh Cowork session (GitHub + Supabase Inbox on, all else off). Then 004, 005, 006, 007 — strictly serial, each after the previous is COMPLETE and verified on the phone.
+1. **Run packet 004** in a fresh Cowork session (GitHub + Supabase Inbox on, all else off). Then 005, 006, 007 — strictly serial, each after the previous is COMPLETE and verified on the phone.
 2. **Prep-3, right after packet 004 closes:** drop the `classify-on-insert` trigger via the connector and mirror it to `supabase/migrations/`. Packet 004 leaves the trigger live on purpose (DDL is never packet work) and is safe with it live, because every row it writes carries a non-null `confidence`.
 3. **008 can run any time** — it is functions-only and independent of the web chain, except that it must never be in flight at the same time as packet 004 U-C (both deploy through `deploy-supabase`). Its one blocker is a Justin check: ANTHROPIC_API_KEY set as a function secret, on a funded Anthropic account.
 4. **009 runs last** — it needs 007 (the web chain) and 008 (its two functions) both COMPLETE.
-5. Justin surfaces, any time: **upload the three PWA icons to `web/icons/`** (generated 2026-09-02 and delivered in the planning chat; the connector cannot write binaries and the git proxy refuses pushes here — packet 007 STOPs without them); delete the old `textwall` Worker (personal Cloudflare account); paste the `setup-deno` step into `claude.yml` so `deno check` runs in packets 004 and 008; delete the superseded branches.
+5. Justin surfaces, any time: **upload the three PWA icons to `web/icons/`** (generated 2026-09-02 and delivered in the planning chat; packet 007 STOPs without them); **delete the old `textwall` Worker** (personal Cloudflare account — nothing in the repo points at it any more); paste the `setup-deno` step into `claude.yml` so `deno check` runs in packets 004 and 008; delete the superseded branches.
 
 ## Mechanics that must not be relearned
+- **A pinned proof can contradict a pinned behaviour.** Packet 003 U-A demanded both a `tw-theme` carry-over and zero occurrences of that string. The behaviour wins, the executor surfaces the conflict instead of gaming the grep, and the planner records an erratum. Write greps that name the permitted occurrences.
 - **`verify_jwt` is enforced by the gateway, before the function body runs.** So a function with `verify_jwt = true` cannot answer an unauthenticated `?ping=1`, and D-25's deploy proof would be dead. All four functions therefore run `false` with the auth check in code; RLS is the boundary, not the gateway.
 - **Realtime membership is invisible to a schema readback.** `supabase_realtime` carried only `messages` until 2026-09-02, enabled out-of-band through the dashboard — no migration mentioned it. A subscription to an unpublished table attaches and silently delivers nothing, which is why packet 009 gates on `pg_publication_tables` rather than trusting the column counts.
 - **Packet 008's functions cannot be exercised until packet 009 ships.** They need a signed-in user's JWT and only a browser can produce one; a connector session has no `auth.uid()`, so it cannot even insert a `primers` row without naming the owner. 008 is proven by its pings; 009 U-A's first primer is its real acceptance test.

@@ -1,6 +1,51 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-09-02 (packet 003) — the shell became a phone app
+- **Packet 003 ran and closed in one session; all three units PASS, none STOPPED.** Full detail in
+  [the run report](docs/packets/reports/packet_003_report_20260902.md). Merges: `2a31051` (U003-A),
+  `95832ce` (U003-B), `fa486a6` (U003-C). `INBOX_VERSION` walked `001-A` → `003-A` → `003-B` →
+  `003-C`, each read back live from the Worker before the next unit was filed, and each confirmed on
+  the phone by Justin.
+- **Bottom nav replaces the tab strip.** Five sections — To-do · Grocery · Research · Notes · Done —
+  rendered from a `SECTIONS` table by `renderNav()`, fixed to the bottom with safe-area padding and
+  inline single-colour SVG icons. Counts come from the existing `counts()`, show only when non-zero,
+  and Done never carries one. `body` gained bottom clearance so the last card is never tucked under
+  the bar.
+- **Events is parked behind `SHOW_EVENTS = false`** — one flag with exactly one use, so the calendar
+  rework has a single place to switch back on.
+- **The Unsorted segment is gone, and permanently so.** It went out on the premise that no open row
+  can land there (verified 0 at open and at close); U003-B then deleted `fileAs` and the un-file
+  `patch({bucket:null})`, which were the app's only writers of a null bucket. Nothing in the app can
+  produce one now.
+- **Cross-filing removed.** The bucket chip row under every card, `fileAs`, the number keys `1`–`4`
+  and the eight `.chip` CSS rules are all deleted; `j`, `k` and `x` survive untouched, as do the
+  per-card date box, tag dropdown and grocery aisle dropdown. Capture is tab-scoped now, and packet
+  004 makes each section own its capture outright.
+- **Swimlanes / Matrix segmented control added and deliberately inert** — Swimlanes selected, Matrix
+  disabled, no listener bound to either. It shows on To-do only. The behaviour lands in packet 005.
+- **Internals renamed:** `window.TEXTWALL` → `window.INBOX` (contents byte-identical), theme key
+  `tw-theme` → `inbox-theme` with a one-time carry-over so nobody's dark mode reset, and the boot
+  banner now logs `INBOX_VERSION` instead of the old `textwall inbox v7` string.
+- **The live wall is fully cut.** `archive/live-wall/index.html` and `wall.html` deleted and
+  `PUBLIC_HOST` removed from `web/config.js`, completing D-26 — the database half went in Prep-2.
+  Confirmed while adjudicating: the only readers of `PUBLIC_HOST` were the two deleted wall files.
+  **Justin surface:** delete the old `textwall` Worker in the personal Cloudflare account.
+- **Known gap, ruled and accepted:** removing the chip row also removed the only pointer-driven
+  caller of `complete()`, so on a touch device a to-do, research or note card cannot be completed or
+  un-completed until packet 005 restores the affordance — and the recurrence roll-forward is
+  keyboard-only meanwhile. Grocery is unaffected. Justin ruled on 2026-09-02 to accept it rather than
+  add an interim button. **005's completion affordance is now load-bearing**, and must cover research
+  and notes, not to-dos alone.
+- **Process finding worth keeping:** U003-A's pinned proofs (`grep -c "tw-theme"` → `0`) contradicted
+  its own pinned behaviour (a carry-over that must name that key). The behaviour won, the executor
+  surfaced the conflict rather than obfuscating the string to make the grep pass, and the erratum is
+  recorded in the report. A session-wide rule now says so: write greps that name the permitted
+  occurrences instead of demanding zero.
+- **Clean run on the hard constraints:** no `supabase/` hunk in any unit, `deploy-supabase` never
+  ran, no `.github/workflows/` edit, no DDL, no database write, no model call added, no new
+  dependency and no new `<script>` tag.
+---
 ## 2026-09-02 (later) — Primer corpus landed; schema applied; packets 008 and 009 contracted
 - **The Primer corpus is in the repo** at `docs/primer/`, split into nine parts for review with the
   text unedited. It is the product IP: Appendix A (the Card Library Specification) is the format,
