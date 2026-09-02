@@ -59,7 +59,9 @@ create policy "owner full access"   on public.messages      for all    to authen
 create policy "owner tags"          on public.todo_tags     for all    to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 create policy "owner grocery prefs" on public.grocery_prefs for all    to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 
--- Live-wall policies (audience pages, retired 2026-08 — slated for removal; see backlog).
+-- Live-wall policies (audience pages). DROPPED 2026-09-02 by migration
+-- 20260902000812_live_wall_retirement. Kept here because this file is the historical
+-- record of the database as it stood at baseline, not the current state.
 create policy "anon posts to public sessions"      on public.messages for insert to anon          with check (owner is null and status = 'open' and bucket is null);
 create policy "anon reads public sessions"         on public.messages for select to anon          using (owner is null);
 create policy "signed-in reads public sessions"    on public.messages for select to authenticated using (owner is null);

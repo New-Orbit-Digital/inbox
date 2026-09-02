@@ -18,7 +18,7 @@ here in the same close-out PR.
 - **Secrets:** placeholders only, everywhere; placeholder examples in issue bodies written without angle brackets (the issue sanitizer strips them). Known secret names: ANTHROPIC_API_KEY, WEBHOOK_SECRET (retires with the webhook), SUPABASE_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 - **File-size gate at session open:** list `web/` and `supabase/functions/` with sizes; any file over 300 KB is a finding and no unit may edit it this run.
 - **Phone-first acceptance:** every unit changing `web/` carries an Actions-for-Justin check on Android at ~390px, light and dark mode.
-- **No AI where process will do.** Model calls in this app after packet 004: **Primer only** (Haiku menu, Sonnet 5 cards). Grocery split/categorization was ruled back to deterministic rules on 2026-09-01 — see [prep_004_grocery_rule.md](prep_004_grocery_rule.md). A unit introducing another model call is a STOP.
+- **No AI where process will do.** Model calls in this app after packet 004: **Primer only** (Haiku menu, Sonnet 5 cards). Grocery split/categorization was ruled back to deterministic rules on 2026-09-01 — see [prep_004_grocery_rule.md](prep_004_grocery_rule.md). A unit introducing another model call is a STOP. Packet 004's close-out proof is `grep -rc "api.anthropic.com" web/ supabase/functions/` returning `0` for every file.
 
 ## Queue
 
@@ -26,12 +26,12 @@ here in the same close-out PR.
 |---|---|---|---|
 | [001](build_packet_001_pipe_shakedown.md) | Pipe shakedown: `INBOX_VERSION` beacon in `web/config.js`; `health` edge function (version, migrations, table counts) | COMPLETE | [2026-08-31](reports/packet_001_report_20260831.md) |
 | [002](build_packet_002_classifier_slimdown.md) | Classifier slim-down: grocery-only `classify` with direct-call entry + `?ping=1`; to-do/event parsing, auto-tagging, date logic deleted; webhook shape still honored for grocery until 004 | COMPLETE | [2026-08-31](reports/packet_002_report_20260831.md) |
-| 003 | Shell: bottom nav (To-do · Grocery · Research · Notes · Done) replacing tabs; Events hidden behind a flag; bucket chips, `fileAs`, keys 1–4 removed; Swimlanes/Matrix control stub; internals renamed (`window.TEXTWALL`→`window.INBOX`, `tw-theme`→`inbox-theme`, beacon); live-wall cleanup (`archive/live-wall/` deleted, `PUBLIC_HOST` removed) | IN PREP | — |
-| 004 | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → **deterministic client-side split + aisle rule, no model call** (ruled 2026-09-01, supersedes the 08-29 ruling); the `classify` grocery path and webhook mode both deleted; Justin drops the DB trigger at close-out | IN PREP | — |
-| 005 | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | IN PREP | — |
-| 006 | Tag sheet: rename / merge-on-collision / reorder / delete-with-reassign via the RPCs | IN PREP | — |
-| 007 | PWA: manifest, service worker, icons, standalone, theme-color; Android share target → Research capture | IN PREP | — |
-| 008 | Primer backend: `primer-menu` + `primer-card` per the Primer corpus §5, daily card cap, pings | IN PREP — needs Prep-2 | — |
+| [003](build_packet_003_shell_nav.md) | Shell: bottom nav (To-do · Grocery · Research · Notes · Done) replacing tabs; Events hidden behind a flag; bucket chips, `fileAs`, keys 1–4 removed; Swimlanes/Matrix control stub; internals renamed (`window.TEXTWALL`→`window.INBOX`, `tw-theme`→`inbox-theme`, beacon); live-wall cleanup (`archive/live-wall/` deleted, `PUBLIC_HOST` removed) | READY | — |
+| [004](build_packet_004_capture.md) | Capture: to-do toggles + tag dropdown (last-used order) + `#tag` parse + plain insert + `tag_touch`; grocery capture → **deterministic client-side split + aisle rule, no model call**; `classify` reduced to a ping-only stub; the DB trigger is dropped afterwards by **Prep-3**, not by the packet (DDL is never packet work) | READY | — |
+| [005](build_packet_005_todo_views.md) | To-do views: swimlanes (lanes by `lane_order`, Untagged first, empty hidden), quadrant stripes, chip filter, complete→Done; matrix (stacked + Unsorted); card overlay | READY | — |
+| [006](build_packet_006_tag_sheet.md) | Tag sheet: rename / merge-on-collision / reorder / delete-with-reassign via the RPCs; stale `TAGS` fallback retired | READY | — |
+| [007](build_packet_007_pwa.md) | PWA: manifest, HTML-never-cached service worker, icons (prep-generated; Justin uploads them to `web/icons/` before this packet runs), standalone, theme-color; Android share target → Research prefill | READY | — |
+| 008 | Primer backend: `primer-menu` + `primer-card` per the Primer corpus §5, daily card cap, pings | IN PREP — **blocked: corpus not in this repo** (see Prep-2) | — |
 | 009 | Primer UI: Research list / new / coverage menu / carousel; overlay-entered brain dump; capture hook; regression fixtures | IN PREP — needs 008 | — |
 
 **Status meanings:** READY — fully contracted, run any time. RUNNING — a session has claimed it. IN PREP — planner prep incomplete, do not run. COMPLETE / STOPPED — see report.
@@ -41,7 +41,7 @@ here in the same close-out PR.
 - 001 → 002: never simultaneous. No file overlap, but both merge through `deploy-supabase`, which redeploys every function from its own checkout — two runs in flight can race and the later-starting run can overwrite the earlier one's function. 002's session-open gate requires 001 COMPLETE (satisfied 2026-08-31).
 - 003 → 004 → 005 → 006 → 007 → 009: strictly serial — each edits `web/inbox.html`.
 - 004 requires 002 COMPLETE; 009 requires 008 COMPLETE and Prep-2.
-- 008 safe alongside 003–007 (functions only).
+- 008 safe alongside 003–007 (functions only) — **except during 004 U-C**, which deploys through `deploy-supabase` and would race it.
 - Recommended solo order: 001 → 002 → 003 → 004 → 005 → 008 → 006 → 007 → 009.
 
 ## Prep record
@@ -50,7 +50,13 @@ here in the same close-out PR.
 
 **Prep-1b (2026-08-31, done) — pipe proven end to end:** executor smoke (issue #2) PASS on `anthropic_api_key`; `deploy-worker` live at `https://inbox.justin-dec.workers.dev` (agency Cloudflare account, subdomain `justin-dec`); `deploy-supabase` redeployed `classify` as v11 from the runner with `verify_jwt = false` intact; Justin signed in and captured at the new URL; `main` ruleset refuses direct pushes. Migration `20260831020016_health_support` (`public.migration_versions`, DEFINER, service_role-only) applied and certified for 001. Ruled: the live wall is cut entirely (repo cleanup → 003; DB purge → Prep-2; old `textwall` Worker → Justin deletes). Executor auth moved to `claude_code_oauth_token` on 2026-09-01 (`e6a3b70`); executor runs bill the Claude subscription from that date on.
 
-**Prep-2 (pending, blocks 008):** apply the Primer corpus §4 migration — `message_id uuid references public.messages(id) on delete set null` (messages.id is uuid, confirmed); keep its own `updated_at` helper (none exists here); certify with the corpus read-backs. Retire the live wall in the database: drop the five anon/`owner is null` policies on `messages` and purge `owner is null` rows (counts shown to Justin first). Confirm `ANTHROPIC_API_KEY` is the live function secret name.
+**Prep-2 part 1 (2026-09-02, done) — live wall retired in the database.** Migration `20260902000812_live_wall_retirement` applied via the Supabase Inbox connector and certified by readback. Counts shown to Justin first: `messages` 216, `owner is null` 2 (both `session='test'`, body `test`, captured 2026-08-01). After: `owner is null` = 0, `messages` = 214, exactly one policy left on `public.messages` (`owner full access`), `todo_tags` 8 and `grocery_prefs` 14 untouched. The `session` column stays (NOT NULL, legacy-required). The repo half is packet 003 U-C.
+
+**Prep-3 (pending, after packet 004 closes):** drop the database webhook trigger `classify-on-insert` on `public.messages` via the Supabase Inbox connector and mirror the drop to `supabase/migrations/` (the baseline file still carries its `create trigger` statement, so skipping the mirror leaves the migration record wrong). Packet 004 deliberately does **not** do this — DDL is never packet work — and does not need to: every row it writes carries a non-null `confidence`, which the webhook skips. Certify by capturing one row and confirming `net._http_response` stays flat. Justin surfaces afterwards: delete the deployed `classify` function and the WEBHOOK_SECRET function secret; keep ANTHROPIC_API_KEY for Primer.
+
+**Prep-2 part 2 (pending, blocks 008) — BLOCKED ON AN ARTEFACT, not on work.** The Primer corpus is not in this repo, not in Drive under that name, and `NewOrbitDigital/primer` is not reachable from the pipe; it lives in another Claude project. Until it is pasted into this project or committed here as `docs/primer_corpus.md`, 008 and 009 cannot be contracted — their JSON shapes are adjudicated verbatim against §5 and inventing them is a FAIL condition. What part 2 must then do: apply the corpus §4 migration (`message_id uuid references public.messages(id) on delete set null` — `messages.id` is uuid, confirmed), keep its own `updated_at` helper (none exists here), and certify with the corpus read-backs. Also still open: confirm `ANTHROPIC_API_KEY` is the live *function secret* name — the deployed `classify` reads that name (grep-verified), which proves what it asks for, not what is set.
+
+**Prep — packets 003–007 (2026-09-02, done):** all five written in full from the live repo and database. Read for the contracts: `web/inbox.html` at 974 lines, `web/config.js`, both deployed functions, all four migrations, and the live row/tag/quadrant counts recorded in each packet's premise gate. Ruled in the same session: the ` - ` grocery separator and its generic stop-list; the seed table's home in `config.js`; `classify` retiring as a stub; the to-do tag dropdown defaulting to the most recently used tag; **every** insert carrying `confidence: 1` — grocery and to-do — so the still-live webhook skips them until Prep-3 drops the trigger. PWA icons generated in the same session so no unit has to synthesise binary assets — **delivered to Justin for upload to `web/icons/`**, not committed here: the chat connector cannot write binary files and this session's git proxy refuses direct pushes to the repo. Packet 007's asset gate STOPs if they are not on `main` when it opens.
 
 **Prep — packet 004 U-B (2026-09-01, done):** grocery ruled back to deterministic rules; split rules, resolution order and a seed keyword table derived from the 95 distinct items in captured history are pinned in [prep_004_grocery_rule.md](prep_004_grocery_rule.md). Verified in the same session: `grocery_prefs` has grown 4 → 14 rows unaided, and `savePref` in `web/inbox.html` already writes it on every aisle correction, so the learning loop needs no new work.
 
@@ -58,11 +64,11 @@ here in the same close-out PR.
 
 - **001** — written in full: [build_packet_001_pipe_shakedown.md](build_packet_001_pipe_shakedown.md).
 - **002** — written in full: [build_packet_002_classifier_slimdown.md](build_packet_002_classifier_slimdown.md).
-- **003** — U-A nav + routing + Events flag + rename; U-B removals (chips/`fileAs`/keys); U-C live-wall cleanup (delete `archive/live-wall/`, drop `PUBLIC_HOST` from `config.js`). Handler inventory before/after.
-- **004** — U-A to-do capture; U-B grocery deterministic split + aisle rule, client-side, per [prep_004_grocery_rule.md](prep_004_grocery_rule.md) (contract and seed table pinned 2026-09-01); U-C delete the grocery path AND webhook mode from `classify`. Justin close-out: drop trigger `classify-on-insert`, then `net._http_response` stays quiet; connector readback of the last 5 inserts.
-- **005** — U-A swimlanes + card + stripes (`--q1..--q4`); U-B matrix; U-C overlay.
-- **006** — U-A tag sheet on the To-do header.
-- **007** — U-A manifest/sw/icons/standalone; U-B `share_target` (GET → `inbox.html?share=1&title&text&url`) → research insert.
+- **003** — written in full: [build_packet_003_shell_nav.md](build_packet_003_shell_nav.md).
+- **004** — written in full: [build_packet_004_capture.md](build_packet_004_capture.md). Three open questions from prep_004 were ruled 2026-09-02: ` - ` is a split separator with a generic stop-list; the seed table lives in `web/config.js`; `classify` becomes a ping-only stub rather than a deleted directory (deleting the directory would leave the deployed v12 running).
+- **005** — written in full: [build_packet_005_todo_views.md](build_packet_005_todo_views.md).
+- **006** — written in full: [build_packet_006_tag_sheet.md](build_packet_006_tag_sheet.md).
+- **007** — written in full: [build_packet_007_pwa.md](build_packet_007_pwa.md). Icons were generated during prep and are uploaded to `web/icons/` by Justin, so no unit synthesises binary assets; the packet's asset gate STOPs if they are missing.
 - **008** — U-A `primer-menu`; U-B `primer-card` + cap 20/day/owner. Corpus contracts verbatim; JSON shape deviations = FAIL.
 - **009** — U-A `web/research.js` + section; U-B capture hook + overlay brain dump; U-C the five regression fixtures.
 
