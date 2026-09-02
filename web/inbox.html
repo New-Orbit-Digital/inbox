@@ -31,7 +31,7 @@
   body{
     background:var(--bg);color:var(--ink);
     font-family:Archivo,system-ui,sans-serif;
-    padding:max(1rem,env(safe-area-inset-top)) 1rem max(2rem,env(safe-area-inset-bottom));
+    padding:max(1rem,env(safe-area-inset-top)) 1rem calc(72px + env(safe-area-inset-bottom));
     max-width:720px;margin:0 auto;-webkit-font-smoothing:antialiased;
   }
   header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem}
@@ -55,17 +55,36 @@
   }
   .hbtns{display:flex;gap:1.1rem}
 
-  .tabs{display:flex;gap:.4rem;margin-bottom:.9rem;flex-wrap:wrap}
-  .tab{
-    padding:.4rem .7rem;border:1px solid var(--line);border-radius:999px;
-    background:var(--card);font:inherit;font-size:.8rem;color:var(--dim);cursor:pointer;
+  .nav{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;
+    display:flex;justify-content:space-around;align-items:stretch;
+    max-width:720px;margin:0 auto;
+    background:var(--card);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
   }
-  .tab[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-  .tab .n{opacity:.7;font-variant-numeric:tabular-nums}
-  .tab .n.badge{
-    opacity:1;background:var(--late-edge);color:#fff;border-radius:999px;
-    padding:.05rem .45rem;margin-left:.1rem;font-size:.7rem;font-weight:600;
+  .navbtn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;
+    min-height:56px;padding:.45rem .2rem;
+    border:0;background:none;font:inherit;color:var(--dim);cursor:pointer;
   }
+  .navbtn[aria-selected=true]{color:var(--nav-accent,var(--ink))}
+  .navlabel{font-size:.68rem;line-height:1}
+  .navbtn .n{
+    font-size:.62rem;line-height:1;font-variant-numeric:tabular-nums;
+    min-height:.7rem;opacity:.75;
+  }
+
+  .seg{
+    display:inline-flex;margin-bottom:.9rem;
+    border:1px solid var(--line);border-radius:999px;overflow:hidden;
+  }
+  .seg[hidden]{display:none}
+  .segbtn{
+    padding:.35rem .85rem;border:0;background:transparent;
+    font:inherit;font-size:.78rem;color:var(--dim);cursor:pointer;
+  }
+  .segbtn[aria-selected=true]{background:var(--ink);color:var(--bg)}
+  .segbtn:disabled{opacity:.45;cursor:default}
 
   .tagbar{display:flex;gap:.35rem;margin:-.3rem 0 .9rem;flex-wrap:wrap}
   .tagbar[hidden]{display:none}
@@ -213,27 +232,21 @@
     <button class="primary" id="add">Add</button>
   </div>
 
-  <div class="tabs" role="tablist" id="tabs">
-    <button class="tab" role="tab" data-f="unsorted" aria-selected="true">Unsorted <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="todo" aria-selected="false">To-do <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="grocery" aria-selected="false">Grocery <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="event" aria-selected="false">Events <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="research" aria-selected="false">Research <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="note" aria-selected="false">Notes <span class="n"></span></button>
-    <button class="tab" role="tab" data-f="done" aria-selected="false">Done</button>
-  </div>
+  <div class="seg" id="seg" role="tablist" aria-label="To-do view" hidden></div>
 
   <div class="tagbar" id="tagbar" hidden></div>
 
   <ul id="list"></ul>
   <p class="keys">j / k move · 1 to-do · 2 grocery · 3 research · 4 note · x done</p>
+
+  <nav class="nav" id="nav" role="tablist" aria-label="Sections"></nav>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
 (function(){
-  console.log('textwall inbox v7 (password sign-in)');
+  console.log('inbox shell', window.INBOX_VERSION);
 
   // A stale fragment in the redirect URL could produce "##access_token=…",
   // which hides the token from the auth library. Normalize before init.
@@ -242,7 +255,7 @@
       location.pathname + location.search + location.hash.slice(1));
   }
 
-  var cfg = window.TEXTWALL;
+  var cfg = window.INBOX;
   var db  = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   var TZ  = cfg.TIMEZONE || 'America/New_York';
   var CATS = cfg.GROCERY_ORDER || ['Other'];
@@ -253,17 +266,24 @@
   var list = document.getElementById('list');
   var tagbar = document.getElementById('tagbar');
 
-  var user = null, items = [], filter = 'unsorted', tagFilter = 'today', active = 0;
+  var user = null, items = [], filter = 'todo', tagFilter = 'today', active = 0;
 
   // ---------- theme ----------
   var themeBtn = document.getElementById('theme');
   function applyTheme(t){
     document.documentElement.dataset.theme = t;
     themeBtn.textContent = t === 'dark' ? '☀ light' : '◐ dark';
-    try{ localStorage.setItem('tw-theme', t); }catch(e){}
+    try{ localStorage.setItem('inbox-theme', t); }catch(e){}
   }
   var savedTheme = null;
-  try{ savedTheme = localStorage.getItem('tw-theme'); }catch(e){}
+  // One-time carry-over from the old key so the current setting survives the rename.
+  try{
+    savedTheme = localStorage.getItem('inbox-theme');
+    if(!savedTheme){
+      savedTheme = localStorage.getItem('tw-theme');
+      if(savedTheme) localStorage.removeItem('tw-theme');
+    }
+  }catch(e){}
   applyTheme(savedTheme ||
     (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   themeBtn.addEventListener('click', function(){
@@ -274,6 +294,15 @@
     todo:'var(--todo)', grocery:'var(--grocery)',
     research:'var(--research)', note:'var(--note)', event:'var(--event)'
   };
+  var SHOW_EVENTS = false;   // Calendar is parked; flip to true only when its rework ships.
+  var SECTIONS = [
+    { f:'todo',     label:'To-do',    accent:'var(--todo)' },
+    { f:'grocery',  label:'Grocery',  accent:'var(--grocery)' },
+    { f:'research', label:'Research', accent:'var(--research)' },
+    { f:'note',     label:'Notes',    accent:'var(--note)' },
+    { f:'event',    label:'Events',   accent:'var(--event)', flag:'events' },
+    { f:'done',     label:'Done',     accent:'var(--done)' }
+  ];
   var CHIP_BUCKETS = ['todo','grocery','research','note'];
   var normalize = function(s){ return s.toLowerCase().trim(); };
 
@@ -889,24 +918,67 @@
     }));
   }
 
+  // ---------- bottom nav ----------
+  var navEl = document.getElementById('nav');
+  var SVG_OPEN = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"' +
+    ' stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var ICONS = {
+    todo:     '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12.5l2.5 2.5L16 9"/>',
+    grocery:  '<path d="M4 8h16l-1.5 11.2a2 2 0 0 1-2 1.8H7.5a2 2 0 0 1-2-1.8L4 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    research: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+    note:     '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/>',
+    event:    '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+    done:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+  };
+
+  function renderNav(c){
+    var secs = SECTIONS.filter(function(s){ return !s.flag || (s.flag === 'events' && SHOW_EVENTS); });
+    navEl.replaceChildren.apply(navEl, secs.map(function(s){
+      var b = document.createElement('button');
+      b.className = 'navbtn';
+      b.setAttribute('role', 'tab');
+      b.dataset.f = s.f;
+      b.setAttribute('aria-selected', s.f === filter);
+      b.style.setProperty('--nav-accent', s.accent);
+      b.innerHTML = SVG_OPEN + ICONS[s.f] + '</svg>';
+      var lab = document.createElement('span');
+      lab.className = 'navlabel';
+      lab.textContent = s.label;
+      b.appendChild(lab);
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = (s.f !== 'done' && c[s.f]) ? c[s.f] : '';
+      b.appendChild(n);
+      return b;
+    }));
+  }
+
+  // Swimlanes / Matrix stub. Inert in this packet — Matrix lands in 005.
+  var segEl = document.getElementById('seg');
+  function renderSeg(){
+    if(filter !== 'todo'){ segEl.hidden = true; return; }
+    segEl.hidden = false;
+    var lanes = document.createElement('button');
+    lanes.className = 'segbtn';
+    lanes.setAttribute('role', 'tab');
+    lanes.dataset.v = 'lanes';
+    lanes.setAttribute('aria-selected', 'true');
+    lanes.textContent = 'Swimlanes';
+    var matrix = document.createElement('button');
+    matrix.className = 'segbtn';
+    matrix.setAttribute('role', 'tab');
+    matrix.dataset.v = 'matrix';
+    matrix.setAttribute('aria-selected', 'false');
+    matrix.disabled = true;
+    matrix.title = 'Lands in packet 005';
+    matrix.textContent = 'Matrix';
+    segEl.replaceChildren(lanes, matrix);
+  }
+
   function render(){
     var c = counts();
-    var tabsEl = document.getElementById('tabs');
-    [].forEach.call(tabsEl.children, function(tab){
-      var f = tab.dataset.f;
-      var n = tab.querySelector('.n');
-      if(n){
-        n.textContent = c[f] ? c[f] : '';
-        n.classList.toggle('badge', f === 'unsorted' && !!c[f]);
-      }
-      if(f === 'unsorted') tab.style.display = c[f] ? '' : 'none';
-    });
-    if(filter === 'unsorted' && !c.unsorted){
-      filter = 'todo';
-      [].forEach.call(tabsEl.children, function(t){
-        t.setAttribute('aria-selected', t.dataset.f === filter);
-      });
-    }
+    renderNav(c);
+    renderSeg();
     renderTagbar();
     updateCapture();
 
@@ -938,14 +1010,11 @@
     list.replaceChildren.apply(list, nodes);
   }
 
-  document.getElementById('tabs').addEventListener('click', function(e){
-    var tab = e.target.closest('.tab');
-    if(!tab) return;
-    filter = tab.dataset.f;
+  navEl.addEventListener('click', function(e){
+    var btn = e.target.closest('.navbtn');
+    if(!btn) return;
+    filter = btn.dataset.f;
     active = 0;
-    [].forEach.call(this.children, function(t){
-      t.setAttribute('aria-selected', t === tab);
-    });
     render();
   });
 
