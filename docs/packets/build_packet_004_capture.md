@@ -20,7 +20,7 @@
 
 ## Hard constraints (verbatim, non-negotiable)
 
-1. **After this packet there is no model call in this app except Primer.** `grep -rc "api.anthropic.com" web/ supabase/functions/` must be `0` for every file at close-out. A model call added on any path = FAIL.
+1. **After this packet there is no model call in this app except Primer.** `grep -rc "api.anthropic.com" web/ supabase/functions/` must be `0` for every file at close-out **except `supabase/functions/primer-menu/` and `supabase/functions/primer-card/`, which carry one each and are packet 008's** — 008 is functions-only and may legitimately land before this packet. A model call added on any other path = FAIL.
 2. **No DDL, no migration file, no trigger change by any unit — and not by Justin during this packet either.** Dropping `classify-on-insert` is **Prep-3**, a separate prep session that fires the drop through the connector and mirrors it to `supabase/migrations/`. This packet leaves the trigger live and is safe with it live. A unit that seems to need a schema change is a STOP.
 3. **Never touch `.github/workflows/`.**
 4. **Secret placeholders in every issue:** names only — ANTHROPIC_API_KEY, WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY — never a value; examples written WITHOUT angle brackets. WEBHOOK_SECRET retires with the trigger; if its value ever appears outside the trigger definition, treat it as burned and tell Justin.
@@ -209,7 +209,7 @@ Replace the file's entire contents with a single-file `Deno.serve` stub:
 ## End-of-run report (single message, final)
 
 1. Per unit: PASS / FAIL / STOPPED, issue numbers, PR numbers, merge SHAs, shipped version values.
-2. `grep -rc "api.anthropic.com" web/ supabase/functions/` for every file — all `0`. This is the packet's headline claim and it is proved by grep, not asserted.
+2. `grep -rc "api.anthropic.com" web/ supabase/functions/` for every file — `0` everywhere except `primer-menu` and `primer-card` at 1 each if packet 008 has already landed. This is the packet's headline claim and it is proved by grep, not asserted; state whether 008 had landed.
 2b. An explicit statement that the `classify-on-insert` trigger is **still live** and that Prep-3 is required to retire it, with the reason (DDL is never packet work).
 3. Confirmation that no DDL was issued, no migration file was written, nothing touched `.github/workflows/`, and `supabase/config.toml` is unchanged.
 4. Connector readback of the last 5 inserted rows (`select body, bucket, grocery_category, tag, important, urgent, auto, confidence, created_at from public.messages order by created_at desc limit 5`) — the shape proof that captures are landing complete without the webhook.

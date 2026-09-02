@@ -51,12 +51,18 @@
   base + Inbox project block, SPEC.md to the Claude project.
 
 ## 2026-09-02 — packets 003–007 written; Prep-2 half fired
-- **[BLOCKING 008/009] The Primer corpus is not reachable from this repo.** Not in `docs/`, not in
-  Drive under that name, and `NewOrbitDigital/primer` is not visible to the pipe; it lives in
-  another Claude project. Commit it as `docs/primer_corpus.md` (or add it to the Claude project)
-  before anyone tries to contract 008. Its §4 is Prep-2 part 2's migration and its §5 is 008's
-  verbatim JSON contract — inventing either is a FAIL condition, so this is a hard block, not a
-  slowdown.
+- **[CLOSED 2026-09-02] The Primer corpus arrived** and is committed at `docs/primer/`, split into
+  nine parts with the text unedited. Its §4 migration is applied and certified; its §5 is packet
+  008's verbatim contract and its §9 is packet 009's. `docs/primer/00_read_first.md` records which
+  of the corpus's 18 open questions are already answered, so no packet re-litigates them.
+- **[Justin surface, blocks 008 U-B] Confirm ANTHROPIC_API_KEY is set as a Supabase function
+  secret, and that the Anthropic account behind it has credit.** The connector cannot list function
+  secrets, so this cannot be checked from a session — it is packet 008's session-open gate. Primer
+  bills the API, not the Claude subscription: roughly $0.003 for a menu call, $0.01–0.09 per card,
+  $0.25–0.60 for a research-mode primer. `SEARCH_BUDGET` in `primer-card` is the dial.
+- **[note] Primer's cost model is the reason `primer-card` carries a daily cap.** 20 cards per
+  owner per day (SPEC D-21), enforced server-side before the model call, returning 429. Cards are
+  capped rather than primers because cards are what cost money.
 - **[Justin surface, before packet 007] Upload the three PWA icons to `web/icons/`.** Generated
   2026-09-02 and delivered in the planning chat: `icon-192.png`, `icon-512.png`,
   `icon-maskable-512.png`. They are not in this PR because the chat connector cannot write binary

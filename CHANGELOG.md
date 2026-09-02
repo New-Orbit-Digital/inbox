@@ -1,6 +1,49 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-09-02 (later) — Primer corpus landed; schema applied; packets 008 and 009 contracted
+- **The Primer corpus is in the repo** at `docs/primer/`, split into nine parts for review with the
+  text unedited. It is the product IP: Appendix A (the Card Library Specification) is the format,
+  Appendix B is the five samples that are packet 009's regression fixtures, §5 is packet 008's
+  verbatim contract. Primer never reached code — everything executable is a `[PROPOSED]` draft that
+  has never run, and these two packets are what run it.
+- **Migration `20260902014310_primer_schema`** applied via the Supabase Inbox connector and certified
+  by readback: `primers` 14 columns + `primer_cards` 18 = **32 columns, 8 policies, 2 triggers,
+  6 indexes**, RLS true on both — exactly what the corpus's rolled-back-transaction validation
+  predicted. Three decisions taken while firing it and recorded in the mirror: no existing
+  `updated_at` helper on this project (checked), so the corpus's own is kept; `messages.id` is uuid,
+  so the **optional `message_id` FK was added** with `on delete set null`; `verify_jwt` lives in
+  `supabase/config.toml` here, so it is packet 008's job. **Prep-2 is complete.**
+- **Packets 008 and 009 written in full and flipped READY.** 008: `primer-menu` on Haiku and
+  `primer-card` on Sonnet 5 with web search, both running as the calling user,
+  with a server-side daily cap of 20 cards. 009: `web/research.js`, all ten card renderers, the
+  capture hook, and the five fixtures.
+- **Model IDs verified against the live docs:** `claude-haiku-4-5-20251001` and `claude-sonnet-5` are
+  both current and exactly as the corpus wrote them. The web search tool is pinned to
+  `web_search_20250305` — newer versions exist, but the support matrix for `claude-sonnet-5` could
+  not be confirmed, so the broadly-supported version wins until there is evidence.
+- **SPEC D-27 and D-28 added** (Primer models, cost and the daily cap; both functions as the calling
+  user with RLS as the auth boundary, 404 never 403). D-19 and the data model updated.
+- **Four reconciliations the corpus could not know**, ruled into packet 009: no ES-module import
+  (this app has no build step and already has a client), no `alert()` (banned since packet 005), no
+  classifier hook (there is no classifier after 004), and the brain dump entered in the overlay
+  rather than at capture (D-20, the 280-character body check).
+- **Migration `20260902020131_primer_realtime`** applied and certified: both Primer tables added to
+  the `supabase_realtime` publication, which carried only `messages` until now (enabled out-of-band
+  through the dashboard, which is why no migration mentioned it). Found while reviewing packet 009
+  before it shipped — its card carousel subscribes to `primer_cards`, and without membership that
+  subscription attaches and silently delivers nothing.
+- **SPEC D-28 overrules the corpus on `verify_jwt`.** The corpus says "deploy with Verify JWT on";
+  the gateway enforces that ahead of the function body, so it would swallow the `?ping=1` deploy
+  proof D-25 makes mandatory. Both Primer functions ship `false`, like `classify`, with
+  `supabase.auth.getUser()` as the in-code gate and RLS as the boundary.
+- **Recorded rather than papered over:** packet 008's two functions cannot be exercised until packet
+  009 ships, because they need a signed-in user's JWT and only a browser can produce one. 008 is
+  verified by its pings; 009 U-A's first primer is its real acceptance test, and a card that comes
+  back wrong in wording rather than rendering is a finding against 008.
+- **`web/icons/` now exists** with a README naming the three expected files, so the folder is there
+  for Justin to upload into. Still a Justin surface: the connector cannot write binaries.
+---
 ## 2026-09-02 — Prep-2 (half) fired; packets 003–007 contracted
 - **Migration `20260902000812_live_wall_retirement`** applied via the Supabase Inbox connector and
   certified by readback: the five anon/`owner is null` policies dropped from `public.messages`, the

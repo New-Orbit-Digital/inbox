@@ -133,7 +133,7 @@
 
 ### Pinned contract
 
-**Trigger:** tapping a to-do card opens the overlay for that row. Tapping a Grocery, Research, Note or Done card does **not** open it in this packet.
+**Trigger:** tapping a to-do card opens the overlay for that row. Tapping a Grocery, Research, Note or Done card does **not** open it in this packet. (Packet 009 U-B later opens the same sheet, through the same `openSheet` API, for a Research capture — that is contracted there and is not a licence for this unit to build it.)
 
 **Markup**, added once **immediately after the `</div>` that closes `<div id="app">` and before the three `<script>` tags** — outside `#app`, so the scrim can sit above the fixed nav without fighting the app container's stacking context (packet 003's nav is the last child of `#app`), and above the scripts, so the IIFE's `document.getElementById('sheet')` finds it the way every other element in the file is found:
 
@@ -168,7 +168,7 @@
 5. Handler inventory before → after, including the sheet's own listeners and their teardown.
 6. `git diff --stat main` — two files (`inbox.html`, plus the one-line `config.js` bump).
 
-**Adjudication:** PASS shape = two files; one sheet element reused; delete is two-tap and native-dialog-free; toggles resolve the half-null case; tag change touches `tag_touch`; scrim and Escape both close. FAIL on: `confirm`/`alert`; a delete without the two-tap; the sheet opening for non-to-do cards; listeners accumulating on repeat opens (the executor must show they are replaced, not added); version not bumped to `005-C`.
+**Adjudication:** PASS shape = two files; one sheet element reused; delete is two-tap and native-dialog-free; toggles resolve the half-null case; tag change touches `tag_touch`; scrim and Escape both close. FAIL on: `confirm`/`alert`; a delete without the two-tap; the sheet opening for non-to-do cards **in this packet** (packet 009 U-B adds the Research case later, through `openSheet`); listeners accumulating on repeat opens (the executor must show they are replaced, not added); version not bumped to `005-C`.
 
 **STOP conditions:** `messages` delete is refused by RLS for the owner (it is not — `owner full access` is `for all` — but if a delete errors, record it and STOP rather than working around it).
 
