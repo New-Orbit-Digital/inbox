@@ -1,6 +1,54 @@
 # Inbox — Changelog
 Shipped history, newest-first. Close-outs append verified items.
 ---
+## 2026-09-03 (packet 004) — the app stopped asking a model what Justin meant
+- **Packet 004 ran and closed; all three units PASS, none STOPPED.** Full detail in
+  [the run report](docs/packets/reports/packet_004_report_20260903.md). Merges: `bfd3925` (U004-A),
+  `112fb91` (U004-B), `acb8cb0` (U004-C). `INBOX_VERSION` walked `003-C` → `004-A` → `004-B`;
+  `CLASSIFY_VERSION` `002-A` → `004-C`. Each unit was deployed and confirmed on the phone before the
+  next was filed.
+- **There is no model call left in this app.** `grep -rc "api.anthropic.com" web/ supabase/functions/`
+  returns `0` for **every** file, with no exception to declare — packet 008 has not landed yet, and
+  its two Primer functions are the rule's named exception when it does. This is the packet's headline
+  claim and it is proved by grep, not asserted.
+- **To-do capture files itself.** Important / Urgent pill toggles and a tag dropdown ordered by
+  `last_used_at`, defaulting to the most recently used tag and persisting for the session. An inline
+  `#tag` overrides the dropdown for that capture only and is stripped from the body. The insert is
+  eight columns and nothing else; `tag_touch` records the use. No `due_date`, no `auto`, no `recur` —
+  D-09 and D-11 are now true in code.
+- **An untouched capture writes `null`/`null`, not `false`/`false`.** *Unset* means the user never
+  answered, so the row is **Unsorted**; `false`/`false` would have rendered every casual capture as
+  Q4 Eliminate in packet 005. Confirmed by readback on live rows.
+- **Grocery is deterministic and instant.** A split rule and a 250-keyword table in `web/config.js`
+  replace the Haiku parse: `grocery_prefs` exact match → longest keyword substring → `Other`. Run
+  against all 91 distinct grocery items in captured history, **90 land in a real aisle**; the one
+  miss (`flowers`) is genuinely absent from the table and is what the correction loop is for.
+  `oat milk` → Dairy and `muffins` → Bakery, the two the model kept getting wrong. New rows carry
+  `auto: false`, so the `· auto` marker correctly stops appearing.
+- **A contract defect caught before it shipped.** `half and half` was pinned as a Dairy keyword while
+  ` and ` was pinned as a separator, so the keyword could never match and the capture split into two
+  `Other` rows — and `savePref` keys on the body, so no correction could ever repair it. Ruled and
+  fixed inside the unit: separator-bearing keywords are derived from the table at runtime and masked
+  across the split. **The seven pinned acceptance cases all passed on the broken build; running the
+  code over real captured data is what found it.**
+- **`classify` is retired as a 35-line ping-only stub** — no imports, no `Deno.env.get`, no database
+  client, no model call. `?ping=1` → `{"classify_version":"004-C","retired":true}`; everything else,
+  including the webhook POST, → `410`. A stub rather than a deleted directory because deleting a
+  function's directory undeploys nothing.
+- **The `classify-on-insert` trigger is still live, deliberately.** Dropping it is DDL and DDL is
+  never packet work — that is **Prep-3**, with a mirror migration. The packet is safe with it live
+  because every row it writes carries `confidence: 1`, which the webhook skips. Proved rather than
+  assumed: the three confirming grocery inserts produced three webhook POSTs, all `200 {skipped}`,
+  no model call.
+- **Clean on the hard constraints:** three files touched in the whole packet, no DDL, no migration,
+  no database write by any unit, `.github/workflows/` and `supabase/config.toml` untouched, no new
+  dependency.
+- **Process changes adopted:** deferred verification now goes to a standing bookmark issue
+  ([#41](https://github.com/New-Orbit-Digital/inbox/issues/41)) instead of blocking a session;
+  contracts that operate on Justin's own data get a corpus run before PASS; version gates always use
+  a cache-buster, after a cached `config.js` served `001-A` while `main` was at `003-C`; and packets
+  stop asking executors to run their own harnesses, because `claude.yml` allows only parse gates.
+---
 ## 2026-09-02 (packet 003) — the shell became a phone app
 - **Packet 003 ran and closed in one session; all three units PASS, none STOPPED.** Full detail in
   [the run report](docs/packets/reports/packet_003_report_20260902.md). Merges: `2a31051` (U003-A),
